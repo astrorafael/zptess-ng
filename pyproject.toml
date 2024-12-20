@@ -1,0 +1,77 @@
+[project]
+name = "zptess"
+dynamic = ["version"]
+description = "TESS-W Calibration tool"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Rafael González", email = "rafael08@ucm.es"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+  'typing-extensions', # Self for Python < 3.11
+  'python-decouple',  # Get info from enviromental variables
+  # Async Database stuff
+  'SQLAlchemy[asyncio]',
+  'alembic',
+  'aiosqlite',
+  #'exceptiongroups', # For Python < 3.11 when using TaskGroups
+  #'asyncstdlib', # async counterparts such as aenumerate()
+
+  # My own library of Python utilities
+  'lica[photometer]',
+]
+
+[project.urls]
+Homepage = "https://github.com/astrorafael/textual-zptess"
+Repository = "https://github.com/astrorafael/textual-zptess.git"
+
+[project.scripts]
+zp-schema = "zptess.cli.dbase.schema:main"
+zp-extract = "zptess.cli.dbase.extract:main"
+zp-loader = "zptess.cli.dbase.loader:main"
+zp-qa = "zptess.cli.dbase.qa:main"
+#zp-fix = "zptess.cli.dbase.fix:main"
+
+
+[build-system]
+requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+# pyproject.toml
+# Automatically generates a _version-py file from with Git information
+# This file shold be placed in .gitignore
+[tool.setuptools_scm]
+write_to = "src/zptess/_version.py"
+
+[tool.setuptools.packages.find]
+# scanning for namespace packages is true by default in pyproject.toml, so
+# you do NOT need to include the following line.
+namespaces = true
+where = ["src"]
+
+[tool.setuptools]
+script-files = [
+    "scripts/anew",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+]

@@ -1,0 +1,8 @@
+#!/bin/bash
+loader_opts=${1:-all}
+echo "zp-schema --console"
+zp-schema --console
+echo "zp-extract --console all -i kk"
+zp-extract --console all --input-dir kk
+echo "zp-loader --console --quiet -i kk ${loader_opts}"
+zp-loader --console --quiet --input-dir kk ${loader_opts}
