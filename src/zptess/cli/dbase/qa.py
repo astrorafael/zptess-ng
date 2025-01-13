@@ -22,7 +22,7 @@ from typing import List
 # -------------------
 
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -94,15 +94,26 @@ class DbgSummary(Summary):
                 self.nrounds,
             )
 
-    def assert_fict_zp(self, rounds):
-        zps = [r.zp_fict for r in rounds]
+    def assert_fict_zp(self, rounds, default: float = 20.50):
         if not all([r.zp_fict == rounds[0].zp_fict for r in rounds]):
             log.error(
                 "[%s] [%s] [%s] Summary. Fict ZP: All not are equal %s",
                 self.n,
                 self.m,
+                self.s,
                 [r.zp_fict for r in rounds],
             )
+        if rounds:
+            zp_fict = rounds[0].zp_fict 
+            if rounds[0].zp_fict != default:
+                 log.warn(
+                    "[%s] [%s] [%s] Summary. Ficticious ZP (%s) is not %s",
+                    self.n,
+                    self.m,
+                    self.s,
+                    zp_fict,
+                    default,
+                )
 
     def assert_freq_from_rounds(self, rounds):
         freqs = [r.freq for r in rounds]
