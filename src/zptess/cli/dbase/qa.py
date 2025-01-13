@@ -135,7 +135,7 @@ class DbgSummary(Summary):
         mag = magnitude(zp_fict, freq)
         if not math.fabs(mag - self.mag) < 0.005:
             log.warn(
-                "[%s] [%s] [%s]  Summary Magnitudes. computed =%f from f=%f, stored mag=%f frm stored f=%f",
+                "[%s] [%s] [%s]  Summary Magnitudes: computed =%f from f=%f, stored mag=%f from stored f=%f",
                 self.n,
                 self.m,
                 self.s,
@@ -151,7 +151,7 @@ class DbgSummary(Summary):
         zp = central_func(zps) + self.zp_offset
         if not math.fabs(zp - self.zero_point) < 0.005:
             log.warn(
-                "[%s] [%s] [%s]  Summary Zero Points. computed zp=%f, stored zp=%f",
+                "[%s] [%s] [%s]  Summary Zero Points: computed zp=%f, stored zp=%f",
                 self.n,
                 self.m,
                 self.s,
