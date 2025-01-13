@@ -104,9 +104,9 @@ class DbgSummary(Summary):
                 [r.zp_fict for r in rounds],
             )
         if rounds:
-            zp_fict = rounds[0].zp_fict 
+            zp_fict = rounds[0].zp_fict
             if rounds[0].zp_fict != default:
-                 log.warn(
+                log.warn(
                     "[%s] [%s] [%s] Summary. Ficticious ZP (%s) is not %s",
                     self.n,
                     self.m,
@@ -121,12 +121,13 @@ class DbgSummary(Summary):
         freq = central_func(freqs)
         if not math.fabs(freq - self.freq) < 0.0005:
             log.error(
-                "[%s] [%s] [%s]  Summary Frequency: computed =%f, stored =%f",
+                "[%s] [%s] [%s]  Summary Frequency: computed =%.3f, stored =%.3f, \u0394 = %.3f",
                 self.n,
                 self.m,
                 self.s,
                 freq,
                 self.freq,
+                freq - self.freq,
             )
         return freq
 
@@ -135,12 +136,13 @@ class DbgSummary(Summary):
         mag = magnitude(zp_fict, freq)
         if not math.fabs(mag - self.mag) < 0.005:
             log.warn(
-                "[%s] [%s] [%s]  Summary Magnitudes: computed =%f from f=%.3f, stored mag=%f from stored f=%.3f \u0394 = %.3f",
+                "[%s] [%s] [%s]  Summary Magnitudes: computed =%f from f=%.3f & zp=%.2f, stored mag=%f from stored f=%.3f \u0394 = %.3f",
                 self.n,
                 self.m,
                 self.s,
                 mag,
                 freq,
+                zp_fict,
                 self.mag,
                 self.freq,
                 mag - self.mag,
@@ -332,7 +334,9 @@ async def get_all_sessions(
             return (await session.scalars(q)).all()
 
 
-async def check_summary(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_summary(
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
+) -> None:
     if meas_session is not None:
         await check_summary_single(meas_session, async_session)
     else:
@@ -341,7 +345,9 @@ async def check_summary(meas_session: datetime, async_session: async_sessionmake
             await check_summary_single(ses, async_session)
 
 
-async def check_rounds(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_rounds(
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
+) -> None:
     if meas_session is not None:
         await check_rounds_single(meas_session, async_session)
     else:
@@ -350,7 +356,9 @@ async def check_rounds(meas_session: datetime, async_session: async_sessionmaker
             await check_rounds_single(ses, async_session)
 
 
-async def check_samples(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_samples(
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
+) -> None:
     if meas_session is not None:
         await check_samples_single(meas_session, async_session)
     else:
@@ -359,7 +367,9 @@ async def check_samples(meas_session: datetime, async_session: async_sessionmake
             await check_samples_single(ses, async_session)
 
 
-async def check_all(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_all(
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
+) -> None:
     if meas_session is not None:
         await check_all_single(meas_session, async_session)
     else:
