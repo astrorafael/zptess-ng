@@ -135,7 +135,7 @@ class DbgSummary(Summary):
         mag = magnitude(zp_fict, freq)
         if not math.fabs(mag - self.mag) < 0.005:
             log.warn(
-                "[%s] [%s] [%s]  Summary Magnitudes: computed =%f from f=%f, stored mag=%f from stored f=%f",
+                "[%s] [%s] [%s]  Summary Magnitudes: computed =%f from f=%.3f, stored mag=%f from stored f=%.3f \u0394 = %.3f",
                 self.n,
                 self.m,
                 self.s,
@@ -143,6 +143,7 @@ class DbgSummary(Summary):
                 freq,
                 self.mag,
                 self.freq,
+                mag - self.mag,
             )
 
     def assert_zp_from_rounds(self, rounds):
