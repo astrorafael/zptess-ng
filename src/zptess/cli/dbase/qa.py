@@ -11,7 +11,7 @@
 
 import math
 import logging
-import datetime
+from datetime import datetime
 import statistics
 
 from argparse import ArgumentParser, Namespace
@@ -313,14 +313,14 @@ class DbgSample(Sample):
 
 async def get_all_sessions(
     async_session: async_sessionmaker[AsyncSessionClass],
-) -> List[datetime.datetime]:
+) -> List[datetime]:
     async with async_session() as session:
         async with session.begin():
             q = select(DbgSummary.session.distinct()).order_by(DbgSummary.role.asc())
             return (await session.scalars(q)).all()
 
 
-async def check_summary(meas_session, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_summary(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     if meas_session is not None:
         await check_summary_single(meas_session, async_session)
     else:
@@ -329,7 +329,7 @@ async def check_summary(meas_session, async_session: async_sessionmaker[AsyncSes
             await check_summary_single(ses, async_session)
 
 
-async def check_rounds(meas_session, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_rounds(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     if meas_session is not None:
         await check_rounds_single(meas_session, async_session)
     else:
@@ -338,7 +338,7 @@ async def check_rounds(meas_session, async_session: async_sessionmaker[AsyncSess
             await check_rounds_single(ses, async_session)
 
 
-async def check_samples(meas_session, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_samples(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     if meas_session is not None:
         await check_samples_single(meas_session, async_session)
     else:
@@ -347,7 +347,7 @@ async def check_samples(meas_session, async_session: async_sessionmaker[AsyncSes
             await check_samples_single(ses, async_session)
 
 
-async def check_all(meas_session, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def check_all(meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     if meas_session is not None:
         await check_all_single(meas_session, async_session)
     else:
@@ -357,7 +357,7 @@ async def check_all(meas_session, async_session: async_sessionmaker[AsyncSession
 
 
 async def check_summary_single(
-    meas_session, async_session: async_sessionmaker[AsyncSessionClass]
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
 ) -> None:
     async with async_session() as session:
         async with session.begin():
@@ -375,7 +375,7 @@ async def check_summary_single(
 
 
 async def check_rounds_single(
-    meas_session, async_session: async_sessionmaker[AsyncSessionClass]
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
 ) -> None:
     async with async_session() as session:
         async with session.begin():
@@ -395,7 +395,7 @@ async def check_rounds_single(
 
 
 async def check_samples_single(
-    meas_session, async_session: async_sessionmaker[AsyncSessionClass]
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
 ) -> None:
     async with async_session() as session:
         async with session.begin():
@@ -415,7 +415,7 @@ async def check_samples_single(
 
 
 async def check_all_single(
-    meas_session, async_session: async_sessionmaker[AsyncSessionClass]
+    meas_session: datetime, async_session: async_sessionmaker[AsyncSessionClass]
 ) -> None:
     await check_summary_single(meas_session, async_session)
     await check_rounds_single(meas_session, async_session)
