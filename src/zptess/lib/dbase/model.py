@@ -243,7 +243,8 @@ class Round(Model):
     seq: Mapped[int] = mapped_column("round", Integer)  # Round number form 1..NRounds
     role: Mapped[RoleType] = mapped_column(RoleType)
     # session:    Mapped[datetime] = mapped_column(DateTime)
-    freq: Mapped[Optional[float]]  # Average of Median method
+    freq: Mapped[Optional[float]]  
+    # Average or Median of sample frequencies method
     central: Mapped[CentralTendencyType] = mapped_column(
         CentralTendencyType, nullable=True
     )
