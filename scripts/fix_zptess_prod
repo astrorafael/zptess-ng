@@ -17,7 +17,7 @@ fi
 
 DATABASE=${1:-${SOURCE_DATABASE}}
 
-echo "Applying location fixed for repaired photometers. This may take a while"
+echo "Applying database fixes before migration."
 sqlite3 ${DATABASE} <<EOF
 .echo on
 BEGIN;
