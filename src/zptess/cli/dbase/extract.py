@@ -15,7 +15,7 @@ import logging
 
 from argparse import ArgumentParser, Namespace
 from typing import Sequence, Iterable
-from sqlite import Connection
+from sqlite3 import Connection
 
 # -------------------
 # Third party imports
@@ -94,9 +94,10 @@ def write_csv(path: str, header: Sequence[str], iterable: Iterable[str], delimit
         writer.writerow(header)
         for row in iterable:
             writer.writerow(row)
+    log.info("Written to %s", path)
 
 
-def _extract_batch(path: str, con: Connection) -> None:
+def _extract_batch(path: str, conn: Connection) -> None:
     log.info("Extracting from batch_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -107,7 +108,7 @@ def _extract_batch(path: str, con: Connection) -> None:
     write_csv(path, BATCH_H, cursor)
 
 
-def _extract_config(path: str, con: Connection) -> None:
+def _extract_config(path: str, conn: Connection) -> None:
     log.info("Extracting from config_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -118,7 +119,7 @@ def _extract_config(path: str, con: Connection) -> None:
     write_csv(path, CONFIG_H, cursor)
 
 
-def _extract_photometer(path: str, con: Connection) -> None:
+def _extract_photometer(path: str, conn: Connection) -> None:
     log.info("Extracting from summary_t table for photometer data.")
     cursor = conn.cursor()
     cursor = conn.cursor()
@@ -130,7 +131,7 @@ def _extract_photometer(path: str, con: Connection) -> None:
     write_csv(path, PHOTOMETER_H, cursor)
 
 
-def _extract_summary(path: str, con: Connection) -> None:
+def _extract_summary(path: str, conn: Connection) -> None:
     log.info("Extracting from summary_t table for summary calibration data.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -142,7 +143,7 @@ def _extract_summary(path: str, con: Connection) -> None:
     write_csv(path, SUMMARY_H, cursor)
 
 
-def _extract_rounds(path: str, con: Connection) -> None:
+def _extract_rounds(path: str, conn: Connection) -> None:
     log.info("Extracting from rounds_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -153,7 +154,7 @@ def _extract_rounds(path: str, con: Connection) -> None:
     write_csv(path, ROUNDS_H, cursor)
 
 
-def _extract_samples(path: str, con: Connection) -> None:
+def _extract_samples(path: str, conn: Connection) -> None:
     log.info("Extracting from samples_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -167,6 +168,7 @@ def _extract_samples(path: str, con: Connection) -> None:
 # --------------
 # main functions
 # --------------
+
 
 def add_args(parser: ArgumentParser) -> None:
     subparser = parser.add_subparsers(dest="command")

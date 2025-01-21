@@ -7,7 +7,7 @@ def idir() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         "-i",
-        "----input-dir",
+        "--input-dir",
         type=vdir,
         default=os.getcwd(),
         metavar="<Dir>",
@@ -19,7 +19,7 @@ def odir() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         "-o",
-        "----output-dir",
+        "--output-dir",
         type=vdir,
         default=os.getcwd(),
         metavar="<Dir>",
