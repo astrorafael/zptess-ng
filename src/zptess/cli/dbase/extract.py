@@ -15,13 +15,13 @@ import logging
 
 from argparse import ArgumentParser, Namespace
 from typing import Sequence, Iterable
+from sqlite import Connection
 
 # -------------------
 # Third party imports
 # -------------------
 
 from lica.cli import execute
-from lica.validators import vdir
 from lica.sqlite import open_database
 
 # --------------
@@ -29,6 +29,7 @@ from lica.sqlite import open_database
 # -------------
 
 from ... import __version__
+from ..util import parser as prs
 
 # ----------------
 # Module constants
@@ -95,7 +96,7 @@ def write_csv(path: str, header: Sequence[str], iterable: Iterable[str], delimit
             writer.writerow(row)
 
 
-def _extract_batch(path: str, conn) -> None:
+def _extract_batch(path: str, con: Connection) -> None:
     log.info("Extracting from batch_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -106,7 +107,7 @@ def _extract_batch(path: str, conn) -> None:
     write_csv(path, BATCH_H, cursor)
 
 
-def _extract_config(path: str, conn) -> None:
+def _extract_config(path: str, con: Connection) -> None:
     log.info("Extracting from config_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -117,7 +118,7 @@ def _extract_config(path: str, conn) -> None:
     write_csv(path, CONFIG_H, cursor)
 
 
-def _extract_photometer(path: str, conn) -> None:
+def _extract_photometer(path: str, con: Connection) -> None:
     log.info("Extracting from summary_t table for photometer data.")
     cursor = conn.cursor()
     cursor = conn.cursor()
@@ -129,7 +130,7 @@ def _extract_photometer(path: str, conn) -> None:
     write_csv(path, PHOTOMETER_H, cursor)
 
 
-def _extract_summary(path: str, conn) -> None:
+def _extract_summary(path: str, con: Connection) -> None:
     log.info("Extracting from summary_t table for summary calibration data.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -141,7 +142,7 @@ def _extract_summary(path: str, conn) -> None:
     write_csv(path, SUMMARY_H, cursor)
 
 
-def _extract_rounds(path: str, conn) -> None:
+def _extract_rounds(path: str, con: Connection) -> None:
     log.info("Extracting from rounds_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -152,7 +153,7 @@ def _extract_rounds(path: str, conn) -> None:
     write_csv(path, ROUNDS_H, cursor)
 
 
-def _extract_samples(path: str, conn) -> None:
+def _extract_samples(path: str, con: Connection) -> None:
     log.info("Extracting from samples_t table.")
     cursor = conn.cursor()
     cursor.execute("""
@@ -167,29 +168,15 @@ def _extract_samples(path: str, conn) -> None:
 # main functions
 # --------------
 
-
-def prs_idir() -> ArgumentParser:
-    parser = ArgumentParser(add_help=False)
-    parser.add_argument(
-        "-i",
-        "----input-dir",
-        type=vdir,
-        default=os.getcwd(),
-        metavar="<Dir>",
-        help="Input CSV directory (default %(default)s)",
-    )
-    return parser
-
-
 def add_args(parser: ArgumentParser) -> None:
     subparser = parser.add_subparsers(dest="command")
-    subparser.add_parser("config", parents=[prs_idir()], help="Extract config CSV")
-    subparser.add_parser("batch", parents=[prs_idir()], help="Extract batch CSV")
-    subparser.add_parser("photometer", parents=[prs_idir()], help="Extract photometer CSV")
-    subparser.add_parser("summary", parents=[prs_idir()], help="Extract summary CSV")
-    subparser.add_parser("rounds", parents=[prs_idir()], help="Extract rounds CSV")
-    subparser.add_parser("samples", parents=[prs_idir()], help="Extract samples CSV")
-    subparser.add_parser("all", parents=[prs_idir()], help="Extract all CSVs")
+    subparser.add_parser("config", parents=[prs.odir()], help="Extract config CSV")
+    subparser.add_parser("batch", parents=[prs.odir()], help="Extract batch CSV")
+    subparser.add_parser("photometer", parents=[prs.odir()], help="Extract photometer CSV")
+    subparser.add_parser("summary", parents=[prs.odir()], help="Extract summary CSV")
+    subparser.add_parser("rounds", parents=[prs.odir()], help="Extract rounds CSV")
+    subparser.add_parser("samples", parents=[prs.odir()], help="Extract samples CSV")
+    subparser.add_parser("all", parents=[prs.odir()], help="Extract all CSVs")
 
 
 TABLE = {
@@ -206,12 +193,12 @@ def cli_main(args: Namespace) -> None:
     connection, _ = open_database(env_var="SOURCE_DATABASE")
     if args.command not in ("all",):
         func = TABLE[args.command]
-        path = os.path.join(args.input_dir, args.command + ".csv")
+        path = os.path.join(args.output_dir, args.command + ".csv")
         func(path, connection)
         log.info("done.")
     else:
         for name in ("config", "batch", "photometer", "summary", "rounds", "samples"):
-            path = os.path.join(args.input_dir, name + ".csv")
+            path = os.path.join(args.output_dir, name + ".csv")
             func = TABLE[name]
             func(path, connection)
     connection.close()

@@ -159,6 +159,7 @@ class Photometer(Model):
     collector: Mapped[Optional[str]] = mapped_column(
         String(16), default="standard"
     )  #  Collector model
+    comment: Mapped[Optional[str]] = mapped_column(String(255)) # Photometer level comment
 
     # This is not a real column, it s meant for the ORM
     calibrations: Mapped[List["Summary"]] = relationship(back_populates="photometer")

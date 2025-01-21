@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 #from lica.asyncio.photometer import Model as PhotModel, Role, Sensor
-from lica.validators import vdir
 from lica.cli import async_execute
 
 # --------------
@@ -34,6 +33,7 @@ from lica.cli import async_execute
 # -------------
 
 from ... import __version__
+from ..util import parser as prs
 from ...lib.dbase.model import Config, Round, Photometer, Sample, Summary, Batch
 
 # ----------------
@@ -263,29 +263,16 @@ async def loader(args) -> None:
     await engine.dispose()
 
 
-def prs_idir() -> ArgumentParser:
-    parser = ArgumentParser(add_help=False)
-    parser.add_argument(
-        "-i",
-        "----input-dir",
-        type=vdir,
-        default=os.getcwd(),
-        metavar="<Dir>",
-        help="Input CSV directory (default %(default)s)",
-    )
-    return parser
-
-
 def add_args(parser: ArgumentParser) -> None:
     subparser = parser.add_subparsers(dest="command")
-    subparser.add_parser("config", parents=[prs_idir()], help="Load config CSV")
-    subparser.add_parser("batch", parents=[prs_idir()], help="Load batch CSV")
-    subparser.add_parser("photometer", parents=[prs_idir()], help="Load photometer CSV")
-    subparser.add_parser("summary", parents=[prs_idir()], help="Load summary CSV")
-    subparser.add_parser("rounds", parents=[prs_idir()], help="Load rounds CSV")
-    subparser.add_parser("samples", parents=[prs_idir()], help="Load samples CSV")
-    subparser.add_parser("nosamples", parents=[prs_idir()], help="Load all CSVs except samples")
-    subparser.add_parser("all", parents=[prs_idir()], help="Load all CSVs")
+    subparser.add_parser("config", parents=[prs.idir()], help="Load config CSV")
+    subparser.add_parser("batch", parents=[prs.idir()], help="Load batch CSV")
+    subparser.add_parser("photometer", parents=[prs.idir()], help="Load photometer CSV")
+    subparser.add_parser("summary", parents=[prs.idir()], help="Load summary CSV")
+    subparser.add_parser("rounds", parents=[prs.idir()], help="Load rounds CSV")
+    subparser.add_parser("samples", parents=[prs.idir()], help="Load samples CSV")
+    subparser.add_parser("nosamples", parents=[prs.idir()], help="Load all CSVs except samples")
+    subparser.add_parser("all", parents=[prs.idir()], help="Load all CSVs")
 
 
 async def cli_main(args: Namespace) -> None:
