@@ -6,5 +6,5 @@ echo "zp-schema --console"
 zp-schema --console
 echo "zp-extract --console all --output-dir $folder"
 zp-extract --console all --output-dir $folder
-echo "zp-loader --console --quiet all --input-dir $folder ${loader_opts}"
-zp-loader --console --quiet --input-dir $folder ${loader_opts}
+echo "zp-loader --console --quiet  ${loader_opts} --input-dir $folder"
+zp-loader --console --quiet ${loader_opts} --input-dir $folder 
