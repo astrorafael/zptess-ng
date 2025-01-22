@@ -7,7 +7,6 @@
 #
 # We monitor the changes with SELECT name,session,comment FROM summary_t WHERE comment IS NOT NULL ORDER BY session, name;
 
-
 if test -f .env; then
 	source .env
 else
@@ -138,6 +137,20 @@ WHERE name = 'stars3';
 UPDATE summary_t 
 SET comment = (SELECT comment from summary_t WHERE name = 'stars222' AND COMMENT IS NOT NULL)
 WHERE name = 'stars222' AND comment IS NULL;
+
+UPDATE summary_t 
+SET comment = (SELECT comment from summary_t WHERE name = 'stars300' AND COMMENT IS NOT NULL)
+WHERE name = 'stars300' AND comment IS NULL;
+
+UPDATE summary_t 
+SET comment = 'PhotSumm: MAC de tessdb (Rafa, 2023-09-21). Originalmente tenia esa pero ha sido renombrado 3 veces mas. Reparado y recalibrado (nueva MAC)'
+WHERE name = 'stars292' 
+AND (comment LIKE 'Phot: %' OR COMMENT LIKE 'PhotSumm: %');
+
+UPDATE summary_t 
+SET comment = 'PhotSumm: MAC de tessdb (Rafa, 2023-09-21). Reparado y recalibrado (nueva MAC)'
+WHERE name = 'stars293'
+AND (comment LIKE 'Phot: %' OR COMMENT LIKE 'PhotSumm: %');
 
 COMMIT;
 
