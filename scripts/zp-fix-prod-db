@@ -122,6 +122,11 @@ UPDATE summary_t SET comment = 'Summ: ' || comment
 WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
 AND name = 'stars1277' AND session = '2024-05-08T08:20:12';
 
+UPDATE summary_t SET comment = NULL
+WHERE comment IS NOT NULL 
+AND comment NOT IN 
+(SELECT comment FROM summary_t WHERE comment LIKE 'Phot:%' OR comment LIKE 'Summ:%' OR comment LIKE 'PhotSumm:%');
+
 COMMIT;
 
 EOF
