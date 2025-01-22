@@ -129,6 +129,7 @@ async def load_summary(path: str, async_session: async_sessionmaker[AsyncSession
                         row[key] = None if not row[key] else row[key]
                     q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
                     summary = Summary(**row)
+                    log.info("Processing row. %s", row)
                     phot = (await session.scalars(q)).one()
                     summary.photometer = phot
                     log.info("%r", summary)
