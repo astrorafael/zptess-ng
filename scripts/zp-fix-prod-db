@@ -127,6 +127,18 @@ WHERE comment IS NOT NULL
 AND comment NOT IN 
 (SELECT comment FROM summary_t WHERE comment LIKE 'Phot:%' OR comment LIKE 'Summ:%' OR comment LIKE 'PhotSumm:%');
 
+--------------------------------------
+-- Fix photometer duplicate rows error
+--------------------------------------
+
+UPDATE summary_t 
+SET firmware = 'May 19 2016' , filter = 'UV/IR-740', plug = 'USB-A+serial', box = 'Caja plastico antigua', collector = 'standard', comment = 'Phot: Fotometro de referencia. 20.44 es el ZP para que sus lecturas coincidan con un Unihedron SQM'
+WHERE name = 'stars3';
+
+UPDATE summary_t 
+SET comment = (SELECT comment from summary_t WHERE name = 'stars222' AND COMMENT IS NOT NULL)
+WHERE name = 'stars222' AND comment IS NULL;
+
 COMMIT;
 
 EOF

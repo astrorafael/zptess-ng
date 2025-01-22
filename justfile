@@ -79,6 +79,15 @@ env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", proje
 # Restore a fresh, unmigrated ZPTESS database
 db-anew drive=def_drive: (check_mnt drive) (db-restore)
    
+anew folder="migra": db-anew
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    uv sync --reinstall
+    zp-fix-prod-db
+    test -d {{ folder }} || mkdir {{ folder}}
+    zp-schema --console
+    zp-extract --console all --output-dir {{ folder}}
+
 [private]
 db-restore:
     #!/usr/bin/env bash
