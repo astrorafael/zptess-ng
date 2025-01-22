@@ -5,7 +5,7 @@
 
 drive_uuid := "77688511-78c5-4de3-9108-b631ff823ef4"
 user :=  file_stem(home_dir())
-def_drive := join("/media", user, drive_uuid, "env")
+def_drive := join("/media", user, drive_uuid)
 project := file_stem(justfile_dir())
 local_env := join(justfile_dir(), ".env")
 
@@ -71,10 +71,20 @@ lica-rel version="":
 
 
 # Backup .env to storage unit
-env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, project))
+env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, "env", project))
 
 # Restore .env from storage unit
-env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, project))
+env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", project))
+
+# Restore a fresh, unmigrated ZPTESS database
+db-anew drive=def_drive: (check_mnt drive) (db-restore)
+   
+[private]
+db-restore:
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    cp {{ def_drive }}/zptess/zptess-20250121.db zptess.prod.db
+    
 
 [private]
 check_mnt mnt:
