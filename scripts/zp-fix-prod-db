@@ -98,25 +98,9 @@ UPDATE summary_t SET comment = 'Phot: ' || comment
 WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
 AND name = 'stars17' AND session = '1000-01-01T00:16:00'
 
-UPDATE summary_t SET comment = 'Phot: ' || comment
-WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
-AND name = '' AND session = ''
-
-UPDATE summary_t SET comment = 'Phot: ' || comment
-WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
-AND name = '' AND session = ''
-
-UPDATE summary_t SET comment = 'Phot: ' || comment
-WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
-AND name = 'stars' AND session = ''
-
 -----------------------------------------------------------
 -- Fix individual photometers to add Summary level comments
 -----------------------------------------------------------
-
-UPDATE summary_t SET comment = 'Summ: ' || comment
-WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
-AND name = 'stars' AND session = ''
 
 UPDATE summary_t SET comment = 'Summ: ' || comment
 WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
