@@ -39,7 +39,7 @@ DESCRIPTION = "TESS-W Calibration Database data extraction tool"
 
 CONFIG_H = ("section", "prop", "value")
 BATCH_H = ("begin_tstamp", "end_tstamp", "email_sent", "calibrations", "comment")
-PHOTOMETER_H = ("name", "mac", "sensor", "model", "firmware", "filter", "plug", "box", "collector")
+PHOTOMETER_H = ("name", "mac", "sensor", "model", "firmware", "filter", "plug", "box", "collector", "comment")
 SUMMARY_H = (
     "name",
     "mac",

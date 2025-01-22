@@ -103,6 +103,7 @@ async def load_photometer(path:str, async_session: async_sessionmaker[AsyncSessi
                     row["firmware"] = None if not row["firmware"] else row["firmware"]
                     row["filter"] = None if not row["filter"] else row["filter"]
                     row["collector"] = None if not row["collector"] else row["collector"]
+                    row["comment"] = None if not row["comment"] else row["comment"]
                     phot = Photometer(**row)
                     log.info("%r", phot)
                     session.add(phot)
