@@ -66,6 +66,7 @@ where = ["src"]
 [tool.setuptools]
 script-files = [
     "scripts/anew",
+    "scripts/zp-fix-prod-db"
 ]
 
 [tool.ruff]

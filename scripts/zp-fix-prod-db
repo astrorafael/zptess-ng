@@ -1,0 +1,143 @@
+#!/bin/bash
+
+
+# Fixes all little inconsistent data
+# This script is meant to be executed once, with all the inconsistencies.
+# and changes to be made in the source production database before the migration process.
+#
+# We monitor the changes with SELECT name,session,comment FROM summary_t WHERE comment IS NOT NULL ORDER BY session, name;
+
+
+if test -f .env; then
+	source .env
+else
+	echo "No environemnt variables file found. Exiting"
+	exit 255
+fi
+
+DATABASE=${1:-${SOURCE_DATABASE}}
+
+echo "Applying database fixes before migration."
+sqlite3 ${DATABASE} <<EOF
+.echo on
+BEGIN;
+
+--------------------------------------------------
+-- Fix 20.44 => 20.50 as ficticious ZP in rounds_t
+--------------------------------------------------
+
+-- UPDATE rounds_t SET zp_fict = 20.50 WHERE zp_fict = 20.44;
+
+-------------------------------
+-- Fix collector info weirdness
+-------------------------------
+
+UPDATE summary_t SET collector = 'standard'
+WHERE collector LIKE 'Sí%' OR collector LIKE 'Si%';
+
+-------------------------------------------------------
+-- Fix a bunch of comment updates with the same pattern
+-------------------------------------------------------
+
+UPDATE summary_t SET collector = 'standard'
+WHERE collector LIKE 'Sí%' OR collector LIKE 'Si%';
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Phot:%' -- makes it retryable
+AND comment LIKE 'Updated with tessdb MAC%'
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Phot:%' -- makes it retryable
+AND comment LIKE 'MAC de tessdb%'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'calibrado por Cristobal%'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'reparado por Cristobal y recalibrado%'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'recalibrado'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'recalibrado, calibracion anterior manual%'
+
+UPDATE summary_t SET comment = 'PhotSumm: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'PhotSumm:%' -- makes it retryable
+AND comment LIKE 'reparado y recalibrado (nueva MAC)%'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'recalibrado, no se tienen datos de calibracion anterior%'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment IS NOT NULL AND comment NOT LIKE 'Summ:%' -- makes it retryable
+AND comment LIKE 'Entrada%'
+
+--------------------------------------------------------------
+-- Fix individual photometers to add Photometer level comments
+--------------------------------------------------------------
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = 'stars3' AND session = '1000-01-01T00:00:00'
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = 'stars8' AND session = '1000-01-01T00:07:00'
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = 'stars15' AND session = '1000-01-01T00:14:00'
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = 'stars17' AND session = '1000-01-01T00:16:00'
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = '' AND session = ''
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = '' AND session = ''
+
+UPDATE summary_t SET comment = 'Phot: ' || comment
+WHERE comment NOT LIKE 'Phot:%' -- makes it retryable
+AND name = 'stars' AND session = ''
+
+-----------------------------------------------------------
+-- Fix individual photometers to add Summary level comments
+-----------------------------------------------------------
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars' AND session = ''
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars315' AND session = '1000-01-01T03:28:00'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars737' AND session = '1000-01-01T04:14:00'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars1261' AND session = '2024-01-10T12:14:56'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars1293' AND session = '2024-05-07T10:10:40'
+
+UPDATE summary_t SET comment = 'Summ: ' || comment
+WHERE comment NOT LIKE 'Summ:%' -- makes it retryable
+AND name = 'stars1277' AND session = '2024-05-08T08:20:12'
+
+COMMIT;
+
+EOF
