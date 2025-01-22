@@ -159,7 +159,7 @@ class Photometer(Model):
     collector: Mapped[Optional[str]] = mapped_column(
         String(16), default="standard"
     )  #  Collector model
-    comment: Mapped[Optional[str]] = mapped_column(String(255)) # Photometer level comment
+    comment: Mapped[Optional[str]] = mapped_column(String(255))  # Photometer level comment
 
     # This is not a real column, it s meant for the ORM
     calibrations: Mapped[List["Summary"]] = relationship(back_populates="photometer")
@@ -168,10 +168,7 @@ class Photometer(Model):
         return f"Photom(id={self.id!r}, name={self.name!r}, mac={self.mac!r})"
 
     __table_args__ = (
-        UniqueConstraint(
-            name,
-            mac,
-        ),
+        UniqueConstraint(name, mac),
         {},
     )
 
@@ -181,22 +178,16 @@ class Summary(Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     phot_id: Mapped[int] = mapped_column(ForeignKey("photometer_t.id"), index=True)
-    session: Mapped[datetime] = mapped_column(
-        DateTime
-    )  # calibration session identifier
+    session: Mapped[datetime] = mapped_column(DateTime)  # calibration session identifier
     role: Mapped[RoleType] = mapped_column(RoleType)
     calibration: Mapped[CalibrationType] = mapped_column(CalibrationType, nullable=True)
-    calversion: Mapped[Optional[str]] = mapped_column(
-        String(64)
-    )  # calibration software version
+    calversion: Mapped[Optional[str]] = mapped_column(String(64))  # calibration software version
     author: Mapped[Optional[str]]  # who run the calibration
     nrounds: Mapped[Optional[int]]  # Number of rounds passed
     zp_offset: Mapped[
         Optional[float]
     ]  # Additional offset that was summed to the computed zero_point
-    upd_flag: Mapped[
-        Optional[bool]
-    ]  # 1 => TESS-W ZP was updated, 0 => TESS-W ZP was not updated
+    upd_flag: Mapped[Optional[bool]]  # 1 => TESS-W ZP was updated, 0 => TESS-W ZP was not updated
     prev_zp: Mapped[Optional[float]]
     prev_freq_offset: Mapped[Optional[float]]
     zero_point: Mapped[Optional[float]]  #  calibrated zero point
@@ -204,19 +195,15 @@ class Summary(Model):
         CentralTendencyType, nullable=True
     )
     freq: Mapped[Optional[float]]  # final chosen frequency
-    freq_method: Mapped[CentralTendencyType] = mapped_column(
-        CentralTendencyType, nullable=True
-    )
+    freq_method: Mapped[CentralTendencyType] = mapped_column(CentralTendencyType, nullable=True)
     mag: Mapped[Optional[float]]
     comment: Mapped[Optional[str]] = mapped_column(
         String(512)
     )  #  Additional comment for the calibration process
 
-    # This is not a real column, it s meant for the ORM
+    # These are not a real columns, it is meant for the ORM
     photometer: Mapped["Photometer"] = relationship(back_populates="calibrations")
-    # This is not a real column, it s meant for the ORM
     rounds: Mapped[List["Round"]] = relationship(back_populates="summary")
-    # This is not a real column, it s meant for the ORM
     samples: Mapped[List["Sample"]] = relationship(back_populates="summary")
 
     def __repr__(self) -> str:
@@ -244,18 +231,14 @@ class Round(Model):
     seq: Mapped[int] = mapped_column("round", Integer)  # Round number form 1..NRounds
     role: Mapped[RoleType] = mapped_column(RoleType)
     # session:    Mapped[datetime] = mapped_column(DateTime)
-    freq: Mapped[Optional[float]]  
+    freq: Mapped[Optional[float]]
     # Either average or median of samples for this frequencies round
-    central: Mapped[CentralTendencyType] = mapped_column(
-        CentralTendencyType, nullable=True
-    )
+    central: Mapped[CentralTendencyType] = mapped_column(CentralTendencyType, nullable=True)
     stddev: Mapped[Optional[float]]  # Standard deviation for frequency central estimate
     mag: Mapped[
         Optional[float]
     ]  # magnitiude corresponding to central frequency and summing ficticious zero point
-    zp_fict: Mapped[
-        Optional[float]
-    ]  # Ficticious ZP to estimate instrumental magnitudes (=20.50)
+    zp_fict: Mapped[Optional[float]]  # Ficticious ZP to estimate instrumental magnitudes (=20.50)
     zero_point: Mapped[
         Optional[float]
     ]  # Estimated Zero Point for this round ('test' photometer round only, else NULL)
@@ -268,9 +251,7 @@ class Round(Model):
     summary: Mapped["Summary"] = relationship(back_populates="rounds")
     # samples per round. Shoudl match the window size
     # This is not a real column, it s meant for the ORM
-    samples: Mapped[List["Sample"]] = relationship(
-        secondary=SamplesRounds, back_populates="rounds"
-    )
+    samples: Mapped[List["Sample"]] = relationship(secondary=SamplesRounds, back_populates="rounds")
 
     def __repr__(self) -> str:
         return f"Round(id={self.id!r}, #{self.seq!r} [{self.nsamples!r}] {self.role!r}, zp={self.zero_point} f={self.freq}, m={self.mag:.2f}@{self.zp_fict} Ts={datestr(self.begin_tstamp)}, Te={datestr(self.end_tstamp)})"
@@ -291,9 +272,7 @@ class Sample(Model):
 
     # rounds per sample (at least 1...)
     # This is not a real column, it s meant for the ORM
-    rounds: Mapped[List["Round"]] = relationship(
-        secondary=SamplesRounds, back_populates="samples"
-    )
+    rounds: Mapped[List["Round"]] = relationship(secondary=SamplesRounds, back_populates="samples")
 
     # This is not a real column, it s meant for the ORM
     summary: Mapped["Summary"] = relationship(back_populates="samples")
