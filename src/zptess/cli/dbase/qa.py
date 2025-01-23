@@ -167,13 +167,16 @@ class DbgSummary(Summary):
         self.m = photometer.mac
         self.s = self.session
         rounds = await self.awaitable_attrs.rounds
-        log.info("[%s] [%s] [%s] Summary self check", self.n, self.m, self.s)
+        log.info("[%s] [%s] [%s] Summary assert_nounds", self.n, self.m, self.s)
         self.assert_nrounds(rounds)
+        log.info("[%s] [%s] [%s] Summary assert_fict_zp", self.n, self.m, self.s)
         self.assert_fict_zp(rounds)
         if self.nrounds is not None:
+            log.info("[%s] [%s] [%s] Summary assert_freq_from_rounds", self.n, self.m, self.s)
             freq = self.assert_freq_from_rounds(rounds)
             self.assert_mag_from_rounds(rounds, freq)
             if self.role == Role.TEST:
+                log.info("[%s] [%s] [%s] Summary assert_zp_from_rounds", self.n, self.m, self.s)
                 self.assert_zp_from_rounds(rounds)
 
 
