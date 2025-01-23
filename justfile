@@ -78,7 +78,8 @@ env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", proje
 
 # Restore a fresh, unmigrated ZPTESS database
 db-anew drive=def_drive: (check_mnt drive) (db-restore)
-   
+
+# Starts a new database export migration cycle   
 anew folder="migra": db-anew
     #!/usr/bin/env bash
     set -exuo pipefail
@@ -87,6 +88,32 @@ anew folder="migra": db-anew
     test -d {{ folder }} || mkdir {{ folder}}
     zp-db-schema --console
     zp-db-extract --console all --output-dir {{ folder}}
+
+# Starts a new database import migration cycle   
+aload stage="photometer" folder="migra":
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    test -d {{ folder }} || mkdir {{ folder}}
+    zp-db-loader --console config --input-dir {{ folder}}
+    zp-db-loader --console batch --input-dir {{ folder}}
+    if [ "{{stage}}" == "photometer" ]; then
+        zp-db-loader --console photometer --input-dir {{ folder}}
+    elif [ "{{stage}}" == "summary" ]; then
+        zp-db-loader --console photometer --input-dir {{ folder}}
+        zp-db-loader --console summary --input-dir {{ folder}}
+    elif [ "{{stage}}" == "rounds" ]; then
+        zp-db-loader --console photometer --input-dir {{ folder}}
+        zp-db-loader --console summary --input-dir {{ folder}}
+        zp-db-loader --console rounds --input-dir {{ folder}}
+    elif [ "{{stage}}" == "samples" ]; then
+        zp-db-loader --console photometer --input-dir {{ folder}}
+        zp-db-loader --console summary --input-dir {{ folder}}
+        zp-db-loader --console rounds --input-dir {{ folder}}
+        zp-db-loader --console samples --input-dir {{ folder}}
+    else
+        echo "No known stage"
+        exit 1
+    fi
 
 [private]
 db-restore:
