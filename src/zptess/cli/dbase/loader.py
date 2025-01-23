@@ -99,11 +99,8 @@ async def load_photometer(path:str, async_session: async_sessionmaker[AsyncSessi
             with open(path, newline="") as f:
                 reader = csv.DictReader(f, delimiter=";")
                 for row in reader:
-                    row["sensor"] = None if not row["sensor"] else row["sensor"]
-                    row["firmware"] = None if not row["firmware"] else row["firmware"]
-                    row["filter"] = None if not row["filter"] else row["filter"]
-                    row["collector"] = None if not row["collector"] else row["collector"]
-                    row["comment"] = None if not row["comment"] else row["comment"]
+                    for key in ("sensor", "firmware", "filter", "collector", "comment"):
+                        row[key] = None if not row[key] else row[key]
                     phot = Photometer(**row)
                     log.info("%r", phot)
                     session.add(phot)
@@ -125,11 +122,11 @@ async def load_summary(path: str, async_session: async_sessionmaker[AsyncSession
                     row["calibration"] = None if not row["calibration"] else row["calibration"]
                     for key in ("zero_point", "zp_offset", "prev_zp", "freq", "mag"):
                         row[key] = float(row[key]) if row[key] else None
-                    for key in ("zero_point_method", "freq_method", "nrounds"):
+                    for key in ("zero_point_method", "freq_method", "nrounds", "comment"):
                         row[key] = None if not row[key] else row[key]
                     q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
                     summary = Summary(**row)
-                    log.info("Processing row. %s", row)
+                    log.info("[%9s - %s]Processing row. %s", name, mac, row)
                     phot = (await session.scalars(q)).one()
                     summary.photometer = phot
                     log.info("%r", summary)

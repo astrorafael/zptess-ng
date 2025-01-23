@@ -124,7 +124,9 @@ AND name = 'stars1277' AND session = '2024-05-08T08:20:12';
 UPDATE summary_t SET comment = NULL
 WHERE comment IS NOT NULL 
 AND comment NOT IN 
-(SELECT comment FROM summary_t WHERE comment LIKE 'Phot:%' OR comment LIKE 'Summ:%' OR comment LIKE 'PhotSumm:%');
+	(SELECT comment FROM summary_t 
+	WHERE comment LIKE 'Phot:%' 
+	OR comment LIKE 'Summ:%' OR comment LIKE 'PhotSumm:%');
 
 --------------------------------------
 -- Fix photometer duplicate rows error
@@ -151,6 +153,15 @@ UPDATE summary_t
 SET comment = 'PhotSumm: MAC de tessdb (Rafa, 2023-09-21). Reparado y recalibrado (nueva MAC)'
 WHERE name = 'stars293'
 AND (comment LIKE 'Phot: %' OR COMMENT LIKE 'PhotSumm: %');
+
+UPDATE summary_t 
+SET comment = 'PhotSumm: MAC de tessdb (Rafa, 2023-09-21). Reparado y recalibrado por Cristobal'
+WHERE name = 'stars241'
+AND (comment LIKE 'Phot: %' OR COMMENT LIKE 'Summ: %');
+
+UPDATE summary_t 
+SET comment = 'PhotSumm: MAC de tessdb (Rafa, 2023-09-21). Originalmente tenia esa pero ha sido renombrado 1 veces mas.'
+WHERE name = 'stars246';
 
 COMMIT;
 

@@ -132,18 +132,25 @@ def _extract_photometer(path: str, conn: Connection) -> None:
     cursor.execute("""
         SELECT DISTINCT name,mac,sensor,model,firmware,filter,plug,box,collector,SUBSTR(comment,7)
         FROM summary_t
-        WHERE comment LIKE 'Phot: %'
+        WHERE comment LIKE 'Phot:%'
         ORDER BY name
     """)
     rows2 = cursor.fetchall()
     cursor.execute("""
         SELECT DISTINCT name,mac,sensor,model,firmware,filter,plug,box,collector,SUBSTR(comment,11)
         FROM summary_t
-        WHERE comment LIKE 'PhotSumm: %'
+        WHERE comment LIKE 'PhotSumm:%'
         ORDER BY name
     """)
     rows3 = cursor.fetchall()
-    write_csv(path, PHOTOMETER_H, rows1 + rows2 + rows3)
+    cursor.execute("""
+        SELECT DISTINCT name,mac,sensor,model,firmware,filter,plug,box,collector,NULL
+        FROM summary_t
+        WHERE comment LIKE 'Summ:%'
+        ORDER BY name
+    """)
+    rows4 = cursor.fetchall()
+    write_csv(path, PHOTOMETER_H, sorted(set(rows1 + rows2 + rows3 + rows4), key = lambda x: x[0]))
 
 
 def _extract_summary(path: str, conn: Connection) -> None:
@@ -161,7 +168,7 @@ def _extract_summary(path: str, conn: Connection) -> None:
         SELECT DISTINCT name,mac,session,role,calibration,calversion,author,nrounds,offset AS zp_offset,
             upd_flag,prev_zp,zero_point,zero_point_method,freq,freq_method,mag, SUBSTR(comment,7)
         FROM summary_t
-        WHERE comment LIKE 'Summ: %'
+        WHERE comment LIKE 'Summ:%'
         ORDER BY name
     """)
     rows2 = cursor.fetchall()
@@ -169,11 +176,19 @@ def _extract_summary(path: str, conn: Connection) -> None:
         SELECT DISTINCT name,mac,session,role,calibration,calversion,author,nrounds,offset AS zp_offset,
             upd_flag,prev_zp,zero_point,zero_point_method,freq,freq_method,mag,SUBSTR(comment,11)
         FROM summary_t
-        WHERE comment LIKE 'PhotSumm: %'
+        WHERE comment LIKE 'PhotSumm:%'
         ORDER BY name
     """)
     rows3 = cursor.fetchall()
-    write_csv(path, SUMMARY_H, rows1 + rows2 + rows3)
+    cursor.execute("""
+        SELECT DISTINCT name,mac,session,role,calibration,calversion,author,nrounds,offset AS zp_offset,
+            upd_flag,prev_zp,zero_point,zero_point_method,freq,freq_method,mag,NULL
+        FROM summary_t
+        WHERE comment LIKE 'Phot:%'
+        ORDER BY name
+    """)
+    rows4 = cursor.fetchall()
+    write_csv(path, SUMMARY_H, sorted(set(rows1 + rows2 + rows3 + rows4), key = lambda x: x[0]))
 
 
 def _extract_rounds(path: str, conn: Connection) -> None:
