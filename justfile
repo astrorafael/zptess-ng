@@ -83,10 +83,10 @@ anew folder="migra": db-anew
     #!/usr/bin/env bash
     set -exuo pipefail
     uv sync --reinstall
-    zp-fix-prod-db
+    zp-db-fix-src
     test -d {{ folder }} || mkdir {{ folder}}
-    zp-schema --console
-    zp-extract --console all --output-dir {{ folder}}
+    zp-db-schema --console
+    zp-db-extract --console all --output-dir {{ folder}}
 
 [private]
 db-restore:

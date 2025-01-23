@@ -40,11 +40,11 @@ Homepage = "https://github.com/astrorafael/textual-zptess"
 Repository = "https://github.com/astrorafael/textual-zptess.git"
 
 [project.scripts]
-zp-schema = "zptess.cli.dbase.schema:main"
-zp-extract = "zptess.cli.dbase.extract:main"
-zp-loader = "zptess.cli.dbase.loader:main"
-zp-qa = "zptess.cli.dbase.qa:main"
-zp-fix = "zptess.cli.dbase.fix:main"
+zp-db-schema = "zptess.cli.dbase.schema:main"
+zp-db-extract = "zptess.cli.dbase.extract:main"
+zp-db-loader = "zptess.cli.dbase.loader:main"
+zp-db-qa = "zptess.cli.dbase.qa:main"
+zp-db-fix = "zptess.cli.dbase.fix:main"
 
 
 [build-system]
@@ -65,7 +65,7 @@ where = ["src"]
 
 [tool.setuptools]
 script-files = [
-    "scripts/zp-fix-prod-db"
+    "scripts/zp-db-fix-src"
 ]
 
 [tool.ruff]
