@@ -299,8 +299,8 @@ class DbgRound(Round):
         total_samples = await summary.awaitable_attrs.samples
         if self.nsamples > 0 and len(total_samples) == 0:
             self.assert_no_timestamps()
-            log.warn(
-                "[%s] [%s] [%s] Round #%d self check ok. NO SAMPLES, (%d) reported.",
+            log.info(
+                "[%s] [%s] [%s] Round #%d self check ok, but 0/%d STORED SAMPLES !",
                 self.n,
                 self.m,
                 self.s,
