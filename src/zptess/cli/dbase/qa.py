@@ -116,6 +116,11 @@ class DbgSummary(Summary):
                 )
 
     def assert_freq_from_rounds(self, rounds):
+        """
+        Asserts that the computed central frequency from the several frequency rounds
+        using the central method also specied in the Summary table
+        equals the central frequency stored in the Summary table.
+        """
         freqs = [r.freq for r in rounds]
         central_func = central(self.freq_method)
         freq = central_func(freqs)
@@ -149,6 +154,11 @@ class DbgSummary(Summary):
             )
 
     def assert_zp_from_rounds(self, rounds):
+        """
+        Asserts that the computed central zero point from the several zero point rounds
+        using the central method also specied in the Summary table
+        equals the central zero_point stored in the Summary table (minus the offset).
+        """
         zps = [r.zero_point for r in rounds]
         central_func = central(self.zero_point_method)
         zp = central_func(zps) + self.zp_offset

@@ -21,11 +21,14 @@ sqlite3 ${DATABASE} <<EOF
 .echo on
 BEGIN;
 
---------------------------------------------------
--- Fix 20.44 => 20.50 as ficticious ZP in rounds_t
---------------------------------------------------
+--------------------------------------------------------------
+-- Fix zptess bug: 20.44 => 20.50 as ficticious ZP in rounds_t
+--------------------------------------------------------------
 
--- UPDATE rounds_t SET zp_fict = 20.50 WHERE zp_fict = 20.44;
+UPDATE summary_t SET mag = mag + 0.06
+WHERE session IN (SELECT DISTINCT session from rounds_t WHERE zp_fict = 20.44);
+
+UPDATE rounds_t SET zp_fict = 20.50 WHERE zp_fict = 20.44;
 
 -------------------------------
 -- Fix collector info weirdness
