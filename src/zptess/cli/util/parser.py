@@ -26,3 +26,15 @@ def odir() -> ArgumentParser:
         help="Output CSV directory (default %(default)s)",
     )
     return parser
+
+
+def buffer() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-b",
+        "--buffered",
+        default=False,
+        action="store-true",
+        help="Use circular buffer (default %(default)s)",
+    )
+    return parser
