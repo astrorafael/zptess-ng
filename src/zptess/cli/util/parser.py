@@ -4,7 +4,7 @@
 # See the LICENSE file for details
 # ----------------------------------------------------------------------
 
-#--------------------
+# --------------------
 # System wide imports
 # -------------------
 
@@ -19,11 +19,13 @@ from argparse import ArgumentParser
 from lica.validators import vdir
 from lica.asyncio.photometer import Model as PhotModel, Sensor
 
-#--------------
+# --------------
 # local imports
 # -------------
 
 from .misc import mkendpoint
+from ...lib import CentralTendency
+
 
 def idir() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
@@ -78,7 +80,7 @@ def ref() -> ArgumentParser:
         "-rM",
         "--ref-model",
         type=PhotModel,
-        default=PhotModel.TESSW.name,
+        default=PhotModel.TESSW,
         choices=PhotModel,
         help="Ref. photometer model, defaults to %(default)s",
     )
@@ -134,5 +136,39 @@ def test() -> ArgumentParser:
         default=Sensor.TSL237,
         choices=Sensor,
         help="Test photometer sensor, defaults to %(default)s",
+    )
+    return parser
+
+
+def stats() -> ArgumentParser:
+    """Statistics parser options"""
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument("-S", "--samples", type=int, default=None, help="# samples in each round")
+    parser.add_argument(
+        "-C",
+        "--central",
+        type=CentralTendency,
+        default=CentralTendency.MEDIAN,
+        choices=CentralTendency,
+        metavar="<estimator>",
+        help="central tendency estimator, defaults to %(default)s",
+    )
+    parser.add_argument(
+        "-P",
+        "--period",
+        type=float,
+        default=None,
+        action="store",
+        metavar="<float>",
+        help="Wait period between statistics",
+    )
+    parser.add_argument(
+        "-z",
+        "--zp-fict",
+        type=float,
+        default=None,
+        action="store",
+        metavar="<float>",
+        help="Alternate ZP to use for both photometers",
     )
     return parser

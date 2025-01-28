@@ -8,21 +8,16 @@
 # System wide imports
 # -------------------
 
-
 import logging
-from datetime import datetime
-
 
 from argparse import Namespace, ArgumentParser
-from typing import List
 
 # -------------------
 # Third party imports
 # -------------------
 
-from lica.asyncio.photometer import Role
-from lica.validators import vdate
 from lica.cli import async_execute
+from lica.asyncio.photometer import Model as PhotModel, Sensor, Role
 
 # --------------
 # local imports
@@ -30,6 +25,7 @@ from lica.cli import async_execute
 
 from .. import __version__
 from .util import parser as prs
+from ..lib.controller import Reader
 
 # ----------------
 # Module constants
@@ -41,7 +37,7 @@ DESCRIPTION = "TESS-W Reader tool"
 # Module global variables
 # -----------------------
 
-# get the root logger
+# get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
 
 # ------------------
@@ -61,19 +57,38 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 async def cli_read_ref(args: Namespace) -> None:
     log.info(args)
+    controller = Reader(
+        which=(args.command), models={Role.REF: args.ref_model}, sensors={Role.REF: args.ref_sensor}
+    )
+    log.info("Starting Reader controller for %s", args.command)
+    await controller.start()
 
 
 async def cli_read_test(args: Namespace) -> None:
     log.info(args)
+    controller = Reader(
+        which=(args.command),
+        models={Role.TEST: args.test_model},
+        sensors={Role.TEST: args.test_sensor},
+    )
+    log.info("Starting Reader controller for %s", args.command)
+    await controller.start()
 
 
 async def cli_read_both(args: Namespace) -> None:
     log.info(args)
+    controller = Reader(
+        which=("ref", "test"),
+        models={Role.REF: args.ref_model, Role.TEST: args.test_model},
+        sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
+    )
+    log.info("Starting Reader controller for %s", args.command)
+    await controller.start()
 
 
-# --------------
-# main functions
-# --------------
+# -----------------
+# CLI API functions
+# -----------------
 
 
 def add_args(parser: ArgumentParser):
@@ -87,6 +102,11 @@ def add_args(parser: ArgumentParser):
 
 
 async def cli_main(args: Namespace) -> None:
+    if args.verbose:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        logging.getLogger("aiosqlite").setLevel(logging.INFO)
+    else:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     await args.func(args)
 
 
