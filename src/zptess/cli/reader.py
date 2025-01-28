@@ -13,19 +13,13 @@ import logging
 from datetime import datetime
 
 
-from argparse import Namespace
+from argparse import Namespace, ArgumentParser
 from typing import List
 
 # -------------------
 # Third party imports
 # -------------------
 
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 from lica.asyncio.photometer import Role
 from lica.validators import vdate
 from lica.cli import async_execute
@@ -55,12 +49,9 @@ log = logging.getLogger(__name__.split(".")[-1])
 # ------------------
 
 
-
 # -----------------
 # Auxiliary classes
 # -----------------
-
-
 
 
 # -------------------
@@ -68,22 +59,16 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -------------------
 
 
+async def cli_read_ref(args: Namespace) -> None:
+    log.info(args)
 
 
-async def cli_read_ref(
-    args: Namespace, async_session: async_sessionmaker[AsyncSessionClass]
-) -> None:
-    pass
+async def cli_read_test(args: Namespace) -> None:
+    log.info(args)
 
-async def cli_read_test(
-    args: Namespace, async_session: async_sessionmaker[AsyncSessionClass]
-) -> None:
-   pass
 
-async def cli_read_both(
-    args: Namespace, async_session: async_sessionmaker[AsyncSessionClass]
-) -> None:
-    pass
+async def cli_read_both(args: Namespace) -> None:
+    log.info(args)
 
 
 # --------------
@@ -91,26 +76,18 @@ async def cli_read_both(
 # --------------
 
 
-def add_args(parser):
+def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
-    p =subparser.add_parser("ref", parents=[prs.buffer()], help="Read reference photometer")
+    p = subparser.add_parser("ref", parents=[prs.ref()], help="Read reference photometer")
     p.set_defaults(func=cli_read_ref)
-    p = subparser.add_parser("test", parents=[prs.buffer()], help="Read test photometer")
+    p = subparser.add_parser("test", parents=[prs.test()], help="Read test photometer")
     p.set_defaults(func=cli_read_test)
-    p = subparser.add_parser("both", parents=[prs.buffer()], help="read both photometers")
+    p = subparser.add_parser("both", parents=[prs.ref(), prs.test()], help="read both photometers")
     p.set_defaults(func=cli_read_both)
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-    async with engine.begin():
-        await args.func(args, AsyncSession)
-    await engine.dispose()
-
+    await args.func(args)
 
 
 def main():

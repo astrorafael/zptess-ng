@@ -1,5 +1,8 @@
-from .lib import SERIAL_PORT_PREFIX, TEST_SERIAL_PORT, TEST_BAUD
-from .lib import TEST_IP, TEST_TCP_PORT, TEST_UDP_PORT
+
+import re
+
+from ...lib import SERIAL_PORT_PREFIX, TEST_SERIAL_PORT, TEST_BAUD
+from ...lib import TEST_IP, TEST_TCP_PORT, TEST_UDP_PORT
 
 
 def valid_ip_address(ip: str):
