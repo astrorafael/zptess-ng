@@ -34,7 +34,7 @@ from lica.cli import async_execute
 # local imports
 # -------------
 
-from ... import __version__
+from .. import __version__
 from .util import parser as prs
 
 # ----------------

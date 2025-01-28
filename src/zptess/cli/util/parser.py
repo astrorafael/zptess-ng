@@ -34,7 +34,7 @@ def buffer() -> ArgumentParser:
         "-b",
         "--buffered",
         default=False,
-        action="store-true",
+        action="store_true",
         help="Use circular buffer (default %(default)s)",
     )
     return parser

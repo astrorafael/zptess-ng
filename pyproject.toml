@@ -40,12 +40,14 @@ Homepage = "https://github.com/astrorafael/textual-zptess"
 Repository = "https://github.com/astrorafael/textual-zptess.git"
 
 [project.scripts]
+# These are Database related commands
 zp-db-schema = "zptess.cli.dbase.schema:main"
 zp-db-extract = "zptess.cli.dbase.extract:main"
 zp-db-loader = "zptess.cli.dbase.loader:main"
 zp-db-qa = "zptess.cli.dbase.qa:main"
 zp-db-fix = "zptess.cli.dbase.fix:main"
-
+# These are photometer related commands
+zp-read =  "zptess.cli.reader:main"
 
 [build-system]
 requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
