@@ -64,6 +64,39 @@ def buffer() -> ArgumentParser:
     )
     return parser
 
+def info() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-q",
+        "--query",
+        default=False,
+        action="store_true",
+        help="Query photometer info and exit (default %(default)s)",
+    )
+    return parser
+
+def dry() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-d",
+        "--dry-run",
+        default=False,
+        action="store_true",
+        help="Do not store anything in the database (default %(default)s)",
+    )
+    return parser
+
+def upd() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-u",
+        "--update",
+        default=False,
+        action="store_true",
+        help="Update Zero Point in photometer (default %(default)s)",
+    )
+    return parser
+
 
 def ref() -> ArgumentParser:
     """Reference parser options"""

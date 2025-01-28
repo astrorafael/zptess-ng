@@ -56,33 +56,36 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 
 async def cli_read_ref(args: Namespace) -> None:
-    log.info(args)
     controller = Reader(
-        which=(args.command), models={Role.REF: args.ref_model}, sensors={Role.REF: args.ref_sensor}
+        which=(args.command), 
+        models={Role.REF: args.ref_model}, 
+        sensors={Role.REF: args.ref_sensor},
+        buffered=args.buffered,
+        query=args.query
     )
-    log.info("Starting Reader controller for %s", args.command)
+    await controller.init()
     await controller.start()
 
 
 async def cli_read_test(args: Namespace) -> None:
-    log.info(args)
     controller = Reader(
         which=(args.command),
         models={Role.TEST: args.test_model},
         sensors={Role.TEST: args.test_sensor},
+        query=args.query
     )
-    log.info("Starting Reader controller for %s", args.command)
+    await controller.init()
     await controller.start()
 
 
 async def cli_read_both(args: Namespace) -> None:
-    log.info(args)
     controller = Reader(
         which=("ref", "test"),
         models={Role.REF: args.ref_model, Role.TEST: args.test_model},
         sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
+        query=args.query
     )
-    log.info("Starting Reader controller for %s", args.command)
+    await controller.init()
     await controller.start()
 
 
@@ -93,11 +96,11 @@ async def cli_read_both(args: Namespace) -> None:
 
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
-    p = subparser.add_parser("ref", parents=[prs.ref()], help="Read reference photometer")
+    p = subparser.add_parser("ref", parents=[prs.info(), prs.buffer(), prs.ref()], help="Read reference photometer")
     p.set_defaults(func=cli_read_ref)
-    p = subparser.add_parser("test", parents=[prs.test()], help="Read test photometer")
+    p = subparser.add_parser("test", parents=[prs.info(), prs.buffer(), prs.test()], help="Read test photometer")
     p.set_defaults(func=cli_read_test)
-    p = subparser.add_parser("both", parents=[prs.ref(), prs.test()], help="read both photometers")
+    p = subparser.add_parser("both", parents=[prs.info(), prs.buffer(), prs.ref(), prs.test()], help="read both photometers")
     p.set_defaults(func=cli_read_both)
 
 
