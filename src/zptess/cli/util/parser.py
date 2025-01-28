@@ -113,7 +113,7 @@ def ref() -> ArgumentParser:
         "-rM",
         "--ref-model",
         type=PhotModel,
-        default=PhotModel.TESSW,
+        default=None,
         choices=PhotModel,
         help="Ref. photometer model, defaults to %(default)s",
     )
@@ -128,11 +128,10 @@ def ref() -> ArgumentParser:
         "-rS",
         "--ref-sensor",
         type=Sensor,
-        default=Sensor.TSL237,
+        default=None,
         choices=Sensor,
         help="Reference phot sensor, defaults to %(default)s",
     )
-
     return parser
 
 
@@ -151,7 +150,7 @@ def test() -> ArgumentParser:
         "-tM",
         "--test-model",
         type=PhotModel,
-        default=PhotModel.TESSW,
+        default=None,
         choices=PhotModel,
         help="Test photometer model, defaults to %(default)s",
     )
@@ -159,14 +158,14 @@ def test() -> ArgumentParser:
         "-tO",
         "--test-old-proto",
         action="store_true",
-        default=False,
+        default=None,
         help="Use very old protocol instead of JSON, defaults to %(default)s",
     )
     parser.add_argument(
         "-tS",
         "--test-sensor",
         type=Sensor,
-        default=Sensor.TSL237,
+        default=None,
         choices=Sensor,
         help="Test photometer sensor, defaults to %(default)s",
     )
@@ -181,7 +180,7 @@ def stats() -> ArgumentParser:
         "-C",
         "--central",
         type=CentralTendency,
-        default=CentralTendency.MEDIAN,
+        default=None,
         choices=CentralTendency,
         metavar="<estimator>",
         help="central tendency estimator, defaults to %(default)s",
