@@ -18,7 +18,7 @@ from typing import Mapping
 # -------------------
 
 from lica.cli import async_execute
-from lica.asyncio.photometer import Model as PhotModel, Sensor, Role
+from lica.asyncio.photometer import  Role
 
 # --------------
 # local imports

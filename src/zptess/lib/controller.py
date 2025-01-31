@@ -18,8 +18,6 @@ from typing import Mapping, Dict, Iterable
 # ----------------------------
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 from lica.asyncio.photometer.builder import PhotometerBuilder
@@ -151,6 +149,8 @@ class Reader:
             return {"err_msg": txt}
         else:
             phot_info["endpoint"] = role.endpoint()
+            phot_info["sensor"] = phot_info["sensor"] or self.sensor[role]
+            phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
             return phot_info
 
     async def receive(self, role: Role):
