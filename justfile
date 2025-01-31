@@ -49,7 +49,7 @@ lica-dev version="main":
     echo "Removing previous LICA dependency"
     uv add aiohttp
     uv add aioserial
-    uv remove lica[photometer] || echo "Ignoring non existing LICA library";
+    uv remove lica || echo "Ignoring non existing LICA library";
     if [[ "{{ version }}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         echo "Adding LICA source library --tag {{ version }}"; 
         uv add git+https://github.com/guaix-ucm/lica --tag {{ version }};
@@ -63,7 +63,7 @@ lica-rel version="":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Removing previous LICA dependency"
-    uv remove lica[photometer] || echo "Ignoring non existing LICA library";
+    uv remove lica || echo "Ignoring non existing LICA library";
     echo "Adding LICA library {{ version }}";
     uv add --refresh-package lica lica[photometer] {{ version }};
     uv remove aiohttp

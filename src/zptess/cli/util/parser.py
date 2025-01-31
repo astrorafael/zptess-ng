@@ -132,6 +132,13 @@ def ref() -> ArgumentParser:
         choices=Sensor,
         help="Reference phot sensor, defaults to %(default)s",
     )
+    parser.add_argument(
+        "-rR",
+        "--ref-raw-message",
+        action="store_true",
+        default=False,
+        help="Log raw messages, defaults to %(default)s",
+    )
     return parser
 
 
@@ -168,6 +175,13 @@ def test() -> ArgumentParser:
         default=None,
         choices=Sensor,
         help="Test photometer sensor, defaults to %(default)s",
+    )
+    parser.add_argument(
+        "-tR",
+        "--test-raw-message",
+        action="store_true",
+        default=False,
+        help="Log raw messages, defaults to %(default)s",
     )
     return parser
 
