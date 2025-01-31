@@ -70,6 +70,7 @@ async def cli_read_ref(args: Namespace) -> None:
         sensors={Role.REF: args.ref_sensor},
         endpoint={Role.REF: args.ref_endpoint},
         old_proto={Role.REF: args.ref_old_proto},
+        log_msg={Role.REF: args.ref_raw_message},
         buffered=args.buffered,
     )
     await controller.init()
@@ -85,6 +86,7 @@ async def cli_read_test(args: Namespace) -> None:
         sensors={Role.TEST: args.test_sensor},
         endpoint={Role.TEST: args.test_endpoint},
         old_proto={Role.TEST: args.test_old_proto},
+        log_msg={Role.TEST: args.test_raw_message},
         buffered=args.buffered,
     )
     await controller.init()
@@ -102,6 +104,9 @@ async def cli_read_both(args: Namespace) -> None:
         which=("ref", "test"),
         models={Role.REF: args.ref_model, Role.TEST: args.test_model},
         sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
+        endpoint={Role.REF: args.ref_endpoint, Role.TEST: args.test_endpoint},
+        old_proto={Role.REF: args.ref_old_proto, Role.TEST: args.test_old_proto},
+        log_msg={Role.REF: args.ref_raw_message, Role.TEST: args.test_raw_message},
         buffered=args.buffered,
     )
     await controller.init()

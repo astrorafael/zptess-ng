@@ -64,6 +64,7 @@ class Reader:
         sensors: Mapping[Role, Sensor] | None,
         endpoint: Mapping[Role, str] | None,
         old_proto: Mapping[Role, bool] | None,
+        log_msg: Mapping[Role, bool] | None,
         buffered: bool = False,
     ):
         self.Session = AsyncSession
@@ -78,18 +79,22 @@ class Reader:
         self.role = [None, None]
         self.old_proto = [None, None]
         self.endpoint = [None, None]
+        self.producer = [None, None]
+        self.log_msg = [None, None]
         self.buffered = buffered
         if "ref" in self.which:
             self.sensor[Role.REF] = sensors[Role.REF]
             self.model[Role.REF] = models[Role.REF]
             self.old_proto[Role.REF] = old_proto[Role.REF]
             self.endpoint[Role.REF] =  endpoint[Role.REF]
+            self.log_msg[Role.REF] = log_msg[Role.REF]
             self.role[Role.REF] = Role.REF
         if "test" in self.which:
             self.sensor[Role.TEST] = sensors[Role.TEST]
             self.model[Role.TEST] = models[Role.TEST]
             self.old_proto[Role.TEST] = old_proto[Role.TEST]
             self.endpoint[Role.TEST] =  endpoint[Role.TEST]
+            self.log_msg[Role.TEST] = log_msg[Role.TEST]
             self.role[Role.TEST] = Role.TEST
 
     async def _load(self, session, section: str, prop: str) -> str | None:
@@ -118,9 +123,13 @@ class Reader:
                 v = await self._load(session, "ref-device", "endpoint")
                 self.endpoint[Role.REF] = self.endpoint[Role.REF] or v
                 self.photometer[Role.REF] = builder.build(self.model[Role.REF], Role.REF)
+                self.photometer[Role.REF].log.setLevel(logging.INFO)
                 if self.buffered:
                     ring_buffer_size = int(await self._load(session, "ref-stats", "samples"))
                     self.ring[Role.REF] = RingBuffer(ring_buffer_size)
+                if not self.log_msg[Role.REF]:
+                    self.photometer[Role.REF].log.setLevel(logging.WARN)
+                self.producer[Role.REF] = asyncio.create_task(self.photometer[Role.REF].readings())
             if "test" in self.which:
                 v = await self._load(session, "test-device", "model")
                 self.model[Role.TEST] = self.model[Role.TEST] or PhotModel(v)
@@ -131,9 +140,13 @@ class Reader:
                 v = await self._load(session, "test-device", "endpoint")
                 self.endpoint[Role.TEST] = self.endpoint[Role.TEST] or v
                 self.photometer[Role.TEST] = builder.build(self.model[Role.TEST], Role.TEST)
+                if not self.log_msg[Role.TEST]:
+                    self.photometer[Role.TEST].log.setLevel(logging.WARN)
+
                 if self.buffered:
                     ring_buffer_size = int(await self._load(session, "test-stats", "samples"))
                     self.ring[Role.TEST] = RingBuffer(ring_buffer_size)
+                self.producer[Role.TEST] = asyncio.create_task(self.photometer[Role.TEST].readings())
 
     async def info(self, role: Role) -> Dict[str, str]:
         log = logging.getLogger(role.tag())
@@ -155,12 +168,11 @@ class Reader:
 
     async def receive(self, role: Role):
         while True:
-            log.info("cucu")
             msg = await self.photometer[role].queue.get()
+            freqs=list()
             if self.buffered:
                 self.ring[role].append(msg)
-            log.info("tras")
+                freqs = self.ring[role].frequencies()
             line = f"{msg['tstamp'].strftime('%Y-%m-%d %H:%M:%S')} [{msg.get('seq')}] f={msg['freq']} Hz, tbox={msg['tamb']}, tsky={msg['tsky']}"
-            freqs = self.ring[role].frequencies()
             progress = 1
             yield line, freqs, progress
