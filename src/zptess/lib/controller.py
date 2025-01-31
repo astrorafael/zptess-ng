@@ -11,11 +11,14 @@
 import logging
 import asyncio
 
-from typing import Mapping, Dict, Iterable
+from typing import Mapping, Dict, Tuple, List, Generator
+
 
 # ---------------------------
 # Third-party library imports
 # ----------------------------
+
+from typing_extensions import Self
 
 from sqlalchemy import select
 
@@ -33,6 +36,9 @@ from ..lib.dbase.model import Config
 # ----------------
 # Module constants
 # ----------------
+
+PhotResult = Generator[Tuple[str, List[float], int], Tuple[Self, Role], None]
+
 
 SECTION = {Role.REF: "ref-device", Role.TEST: "test-device"}
 SECTION2 = {Role.REF: "ref-stats", Role.TEST: "test-stats"}
@@ -61,11 +67,11 @@ class Reader:
 
     def __init__(
         self,
-        models: Mapping[Role, PhotModel] | None,
-        sensors: Mapping[Role, Sensor] | None,
-        endpoint: Mapping[Role, str] | None,
-        old_proto: Mapping[Role, bool] | None,
-        log_msg: Mapping[Role, bool] | None,
+        models: Mapping[Role, PhotModel],
+        sensors: Mapping[Role, Sensor],
+        endpoint: Mapping[Role, str],
+        old_proto: Mapping[Role, bool],
+        log_msg: Mapping[Role, bool],
         buffered: bool = False,
     ):
         self.Session = AsyncSession
@@ -136,7 +142,7 @@ class Reader:
             return phot_info
 
 # This is an asynchronous generator that must be used with async for
-    async def receive(self, role: Role):
+    async def receive(self, role: Role) -> PhotResult:
         while True:
             msg = await self.photometer[role].queue.get()
             freqs = list()
