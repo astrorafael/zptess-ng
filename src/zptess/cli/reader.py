@@ -18,7 +18,7 @@ from typing import Mapping
 # -------------------
 
 from lica.cli import async_execute
-from lica.asyncio.photometer import  Role
+from lica.asyncio.photometer import Role
 
 # --------------
 # local imports
@@ -65,7 +65,6 @@ async def log_phot_info(controller, role: Role) -> None:
 
 async def cli_read_ref(args: Namespace) -> None:
     controller = Reader(
-        which=(args.command),
         models={Role.REF: args.ref_model},
         sensors={Role.REF: args.ref_sensor},
         endpoint={Role.REF: args.ref_endpoint},
@@ -81,7 +80,6 @@ async def cli_read_ref(args: Namespace) -> None:
 
 async def cli_read_test(args: Namespace) -> None:
     controller = Reader(
-        which=(args.command),
         models={Role.TEST: args.test_model},
         sensors={Role.TEST: args.test_sensor},
         endpoint={Role.TEST: args.test_endpoint},
@@ -98,10 +96,8 @@ async def cli_read_test(args: Namespace) -> None:
         log.info(line)
 
 
-
 async def cli_read_both(args: Namespace) -> None:
     controller = Reader(
-        which=("ref", "test"),
         models={Role.REF: args.ref_model, Role.TEST: args.test_model},
         sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
         endpoint={Role.REF: args.ref_endpoint, Role.TEST: args.test_endpoint},
@@ -114,8 +110,6 @@ async def cli_read_both(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
-
-
 
 
 # -----------------

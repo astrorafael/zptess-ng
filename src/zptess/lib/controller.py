@@ -35,7 +35,7 @@ from ..lib.dbase.model import Config
 # ----------------
 
 SECTION = {Role.REF: "ref-device", Role.TEST: "test-device"}
-SECTION2 = {Role.REF: "ref-stats", Role.TEST: "teststats"}
+SECTION2 = {Role.REF: "ref-stats", Role.TEST: "test-stats"}
 
 # -----------------------
 # Module global variables
@@ -61,7 +61,6 @@ class Reader:
 
     def __init__(
         self,
-        which: Iterable[str],
         models: Mapping[Role, PhotModel] | None,
         sensors: Mapping[Role, Sensor] | None,
         endpoint: Mapping[Role, str] | None,
@@ -74,9 +73,8 @@ class Reader:
         self.producer = dict()
         self.consumer = dict()
         self.ring = dict()
+        self.ring_capacity = dict()
         self.cur_mac = dict()
-
-        self.which = which
         self.sensor = sensors
         self.model = models
         self.old_proto = old_proto
@@ -86,21 +84,19 @@ class Reader:
 
     async def _load(self, session, section: str, prop: str) -> str | None:
         async with session:
-            q = select(Config.value).where(
-                        Config.section == section, Config.prop == prop
-                    )
+            q = select(Config.value).where(Config.section == section, Config.prop == prop)
             return (await session.scalars(q)).one_or_none()
 
     async def init(self) -> None:
         log.info(
             "Initializing %s controller for %s (buffered=%s)",
             self.__class__.__name__,
-            self.which,
+            [k for k in self.model.keys()],
             self.buffered,
         )
         builder = PhotometerBuilder(engine)  # For the reference photometer using database info
         roles = sorted(self.model.keys())
-        
+
         async with self.Session() as session:
             for role in roles:
                 v = await self._load(session, SECTION[role], "model")
@@ -115,11 +111,11 @@ class Reader:
                 if not self.log_msg[role]:
                     self.photometer[role].log.setLevel(logging.WARN)
                 if self.buffered:
-                    ring_buffer_size = int(await self._load(session, SECTION2[role], "samples"))
-                    self.ring[role] = RingBuffer(ring_buffer_size)
+                    self.ring_capacity[role] = int(await self._load(session, SECTION2[role], "samples"))
+                    self.ring[role] = RingBuffer(self.ring_capacity[role])
+                else:
+                    self.ring_capacity[role] = 0
                 self.producer[role] = asyncio.create_task(self.photometer[role].readings())
-               
-    
 
     async def info(self, role: Role) -> Dict[str, str]:
         log = logging.getLogger(role.tag())
@@ -139,13 +135,17 @@ class Reader:
             phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
             return phot_info
 
+# This is an asynchronous generator that must be used with async for
     async def receive(self, role: Role):
         while True:
             msg = await self.photometer[role].queue.get()
-            freqs=list()
+            freqs = list()
             if self.buffered:
                 self.ring[role].append(msg)
                 freqs = self.ring[role].frequencies()
+                log.info("Ring current size is %d/%d", len(self.ring[role]), self.ring_capacity[role])
+            else:
+                freqs = [msg["freq"]]
             line = f"{msg['tstamp'].strftime('%Y-%m-%d %H:%M:%S')} [{msg.get('seq')}] f={msg['freq']} Hz, tbox={msg['tamb']}, tsky={msg['tsky']}"
-            progress = 1
+            progress = len(freqs)
             yield line, freqs, progress
