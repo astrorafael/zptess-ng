@@ -110,11 +110,11 @@ class Reader:
         async with self.Session() as session:
             if "ref" in self.which:
                 v = await self._load(session, "ref-device", "model")
-                self.model[Role.REF] = self.model[Role.REF] or v
+                self.model[Role.REF] = self.model[Role.REF] or PhotModel(v)
                 v = await self._load(session, "ref-device", "sensor")
-                self.sensor[Role.REF] = self.sensor[Role.REF] or v
+                self.sensor[Role.REF] = self.sensor[Role.REF] or Sensor(v)
                 v = await self._load(session, "ref-device", "old-proto")
-                self.old_proto[Role.REF] = self.old_proto[Role.REF] or v
+                self.old_proto[Role.REF] = self.old_proto[Role.REF] or bool(v)
                 v = await self._load(session, "ref-device", "endpoint")
                 self.endpoint[Role.REF] = self.endpoint[Role.REF] or v
                 self.photometer[Role.REF] = builder.build(self.model[Role.REF], Role.REF)
@@ -123,11 +123,11 @@ class Reader:
                     self.ring[Role.REF] = RingBuffer(ring_buffer_size)
             if "test" in self.which:
                 v = await self._load(session, "test-device", "model")
-                self.model[Role.TEST] = self.model[Role.TEST] or v
+                self.model[Role.TEST] = self.model[Role.TEST] or PhotModel(v)
                 v = await self._load(session, "test-device", "sensor")
-                self.sensor[Role.TEST] = self.sensor[Role.TEST] or v
+                self.sensor[Role.TEST] = self.sensor[Role.TEST] or Sensor(v)
                 v = await self._load(session, "test-device", "old-proto")
-                self.old_proto[Role.TEST] = self.old_proto[Role.TEST] or v
+                self.old_proto[Role.TEST] = self.old_proto[Role.TEST] or bool(v)
                 v = await self._load(session, "test-device", "endpoint")
                 self.endpoint[Role.TEST] = self.endpoint[Role.TEST] or v
                 self.photometer[Role.TEST] = builder.build(self.model[Role.TEST], Role.TEST)
@@ -149,7 +149,7 @@ class Reader:
             return {"err_msg": txt}
         else:
             phot_info["endpoint"] = role.endpoint()
-            phot_info["sensor"] = phot_info["sensor"] or self.sensor[role]
+            phot_info["sensor"] = phot_info["sensor"] or self.sensor[role].value
             phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
             return phot_info
 
