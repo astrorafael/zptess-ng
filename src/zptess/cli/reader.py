@@ -76,6 +76,9 @@ async def cli_read_ref(args: Namespace) -> None:
     await log_phot_info(controller, Role.REF)
     if args.query:
         return
+    log = logging.getLogger(Role.REF.tag())
+    async for line, freqs, progress in controller.receive(Role.REF):
+        log.info(line)
 
 
 async def cli_read_test(args: Namespace) -> None:
