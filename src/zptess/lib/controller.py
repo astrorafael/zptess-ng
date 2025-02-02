@@ -71,7 +71,6 @@ class Reader:
         sensors: Mapping[Role, Sensor],
         endpoint: Mapping[Role, str],
         old_proto: Mapping[Role, bool],
-        log_msg: Mapping[Role, bool],
         buffered: bool = False,
     ):
         self.Session = AsyncSession
@@ -85,7 +84,6 @@ class Reader:
         self.model = models
         self.old_proto = old_proto
         self.endpoint = endpoint
-        self.log_msg = log_msg
         self.buffered = buffered
 
     async def _load(self, session, section: str, prop: str) -> str | None:
@@ -114,8 +112,6 @@ class Reader:
                 v = await self._load(session, SECTION[role], "endpoint")
                 self.endpoint[role] = self.endpoint[role] or v
                 self.photometer[role] = builder.build(self.model[role], role)
-                if not self.log_msg[role]:
-                    self.photometer[role].log.setLevel(logging.WARN)
                 if self.buffered:
                     self.ring_capacity[role] = int(await self._load(session, SECTION2[role], "samples"))
                     self.ring[role] = RingBuffer(self.ring_capacity[role])
@@ -141,8 +137,9 @@ class Reader:
             phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
             return phot_info
 
-# This is an asynchronous generator that must be used with async for
-    async def receive(self, role: Role) -> PhotResult:
+
+    async def _receive(self, role: Role) -> None:
+        log = logging.getLogger(role.tag())
         while True:
             msg = await self.photometer[role].queue.get()
             freqs = list()
@@ -154,4 +151,8 @@ class Reader:
                 freqs = [msg["freq"]]
             line = f"{msg['tstamp'].strftime('%Y-%m-%d %H:%M:%S')} [{msg.get('seq')}] f={msg['freq']} Hz, tbox={msg['tamb']}, tsky={msg['tsky']}"
             progress = len(freqs)
-            yield line, freqs, progress
+            log.info(line)
+
+    async def receive(self) -> None:
+        coros = [self._receive(role) for role in sorted(self.photometer.keys())]
+        await asyncio.gather(*coros)

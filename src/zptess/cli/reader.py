@@ -11,7 +11,6 @@
 import logging
 
 from argparse import Namespace, ArgumentParser
-from typing import Mapping
 
 # -------------------
 # Third party imports
@@ -69,16 +68,15 @@ async def cli_read_ref(args: Namespace) -> None:
         sensors={Role.REF: args.ref_sensor},
         endpoint={Role.REF: args.ref_endpoint},
         old_proto={Role.REF: args.ref_old_proto},
-        log_msg={Role.REF: args.ref_raw_message},
         buffered=args.buffered,
     )
+    level = logging.INFO if args.ref_raw_message else logging.WARN
+    logging.getLogger(str(Role.REF)).setLevel(level)
     await controller.init()
     await log_phot_info(controller, Role.REF)
     if args.query:
         return
-    log = logging.getLogger(Role.REF.tag())
-    async for line, freqs, progress in controller.receive(Role.REF):
-        log.info(line)
+    await controller.receive()
 
 
 async def cli_read_test(args: Namespace) -> None:
@@ -87,16 +85,16 @@ async def cli_read_test(args: Namespace) -> None:
         sensors={Role.TEST: args.test_sensor},
         endpoint={Role.TEST: args.test_endpoint},
         old_proto={Role.TEST: args.test_old_proto},
-        log_msg={Role.TEST: args.test_raw_message},
         buffered=args.buffered,
     )
+    level = logging.INFO if args.test_raw_message else logging.WARN
+    logging.getLogger(str(Role.TEST)).setLevel(level)
     await controller.init()
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
-    log = logging.getLogger(Role.TEST.tag())
-    async for line, freqs, progress in controller.receive(Role.TEST):
-        log.info(line)
+    await controller.receive()
+
 
 
 async def cli_read_both(args: Namespace) -> None:
@@ -105,14 +103,18 @@ async def cli_read_both(args: Namespace) -> None:
         sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
         endpoint={Role.REF: args.ref_endpoint, Role.TEST: args.test_endpoint},
         old_proto={Role.REF: args.ref_old_proto, Role.TEST: args.test_old_proto},
-        log_msg={Role.REF: args.ref_raw_message, Role.TEST: args.test_raw_message},
         buffered=args.buffered,
     )
+    level1 = logging.INFO if args.ref_raw_message else logging.WARN
+    level2 = logging.INFO if args.test_raw_message else logging.WARN
+    logging.getLogger(str(Role.REF)).setLevel(level1)
+    logging.getLogger(str(Role.TEST)).setLevel(level2)
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
+    await controller.receive()
 
 
 # -----------------
