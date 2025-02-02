@@ -9,12 +9,14 @@
 # -------------------
 
 import logging
-
+from typing import Mapping, Any
 from argparse import Namespace, ArgumentParser
 
 # -------------------
 # Third party imports
 # -------------------
+
+from pubsub import pub
 
 from lica.cli import async_execute
 from lica.asyncio.photometer import Role
@@ -45,12 +47,30 @@ log = logging.getLogger(__name__.split(".")[-1])
 # ------------------
 
 
-async def log_phot_info(controller, role: Role) -> None:
+async def log_phot_info(controller: Reader, role: Role) -> None:
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
     for key, value in sorted(phot_info.items()):
         log.info("%-12s: %s", key.upper(), value)
 
+
+
+def onReading(controller: Reader, role: Role, reading: Mapping[str,Any]) -> None:
+    log = logging.getLogger(role.tag())
+    line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
+    log.info(line)
+
+
+def onReading2(controller: Reader, role: Role, reading: Mapping[str,Any]) -> None:
+    log = logging.getLogger(role.tag())
+    current = len(controller.buffer(role))
+    total = controller.buffer(role).capacity()
+    name = controller.phot_info[role]["name"]
+    if current < total:
+        log.info("%-9s waiting for enough samples, %03d remaining",name, total-current)
+    else:
+        line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
+        log.info(line)
 
 # -----------------
 # Auxiliary classes
@@ -60,6 +80,7 @@ async def log_phot_info(controller, role: Role) -> None:
 # -------------------
 # Auxiliary functions
 # -------------------
+
 
 
 async def cli_read_ref(args: Namespace) -> None:
@@ -96,7 +117,6 @@ async def cli_read_test(args: Namespace) -> None:
     await controller.receive()
 
 
-
 async def cli_read_both(args: Namespace) -> None:
     controller = Reader(
         models={Role.REF: args.ref_model, Role.TEST: args.test_model},
@@ -109,6 +129,7 @@ async def cli_read_both(args: Namespace) -> None:
     level2 = logging.INFO if args.test_raw_message else logging.WARN
     logging.getLogger(str(Role.REF)).setLevel(level1)
     logging.getLogger(str(Role.TEST)).setLevel(level2)
+    pub.subscribe(onReading2, 'reading_info')
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)

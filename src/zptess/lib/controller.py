@@ -18,6 +18,8 @@ from typing import Mapping, Dict, Tuple, List, Generator
 # Third-party library imports
 # ----------------------------
 
+from pubsub import pub
+
 from typing_extensions import Self
 
 from sqlalchemy import select
@@ -78,13 +80,18 @@ class Reader:
         self.producer = dict()
         self.consumer = dict()
         self.ring = dict()
-        self.ring_capacity = dict()
         self.cur_mac = dict()
+        self.phot_info = dict()
         self.sensor = sensors
         self.model = models
         self.old_proto = old_proto
         self.endpoint = endpoint
         self.buffered = buffered
+
+
+    def buffer(self, role: Role):
+        return self.ring[role]
+    
 
     async def _load(self, session, section: str, prop: str) -> str | None:
         async with session:
@@ -113,10 +120,10 @@ class Reader:
                 self.endpoint[role] = self.endpoint[role] or v
                 self.photometer[role] = builder.build(self.model[role], role)
                 if self.buffered:
-                    self.ring_capacity[role] = int(await self._load(session, SECTION2[role], "samples"))
-                    self.ring[role] = RingBuffer(self.ring_capacity[role])
+                    capacity = int(await self._load(session, SECTION2[role], "samples"))
                 else:
-                    self.ring_capacity[role] = 0
+                    capacity = 1
+                self.ring[role] = RingBuffer(capacity)
                 self.producer[role] = asyncio.create_task(self.photometer[role].readings())
 
     async def info(self, role: Role) -> Dict[str, str]:
@@ -135,23 +142,17 @@ class Reader:
             phot_info["endpoint"] = role.endpoint()
             phot_info["sensor"] = phot_info["sensor"] or self.sensor[role].value
             phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
+            self.phot_info[role] = phot_info
             return phot_info
 
 
     async def _receive(self, role: Role) -> None:
-        log = logging.getLogger(role.tag())
         while True:
             msg = await self.photometer[role].queue.get()
-            freqs = list()
-            if self.buffered:
-                self.ring[role].append(msg)
-                freqs = self.ring[role].frequencies()
-                log.info("Ring current size is %d/%d", len(self.ring[role]), self.ring_capacity[role])
-            else:
-                freqs = [msg["freq"]]
-            line = f"{msg['tstamp'].strftime('%Y-%m-%d %H:%M:%S')} [{msg.get('seq')}] f={msg['freq']} Hz, tbox={msg['tamb']}, tsky={msg['tsky']}"
-            progress = len(freqs)
-            log.info(line)
+            self.ring[role].append(msg)
+            pub.sendMessage('reading_info', controller=self, role=role, reading=msg)
+
+         
 
     async def receive(self) -> None:
         coros = [self._receive(role) for role in sorted(self.photometer.keys())]

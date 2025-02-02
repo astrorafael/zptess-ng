@@ -4,7 +4,7 @@
 # See the LICENSE file for details
 # ----------------------------------------------------------------------
 
-#--------------------
+# --------------------
 # System wide imports
 # -------------------
 
@@ -18,7 +18,7 @@ import collections
 # -------------------
 
 
-#--------------
+# --------------
 # local imports
 # -------------
 
@@ -35,13 +35,19 @@ from . import CentralTendency
 # get the root logger
 log = logging.getLogger(__name__.split(".")[-1])
 
-# ------- 
+# -------
 # Classes
 # -------
 
-class RingBuffer:
 
-    def __init__(self, capacity: int=75, zp: float=20.50, fo: float=0.0, central: CentralTendency = CentralTendency.MEDIAN):
+class RingBuffer:
+    def __init__(
+        self,
+        capacity: int = 75,
+        zp: float = 20.50,
+        fo: float = 0.0,
+        central: CentralTendency = CentralTendency.MEDIAN,
+    ):
         self._buffer = collections.deque([], capacity)
         self._zp = zp
         self._fo = fo
@@ -56,6 +62,9 @@ class RingBuffer:
     def __len__(self):
         return len(self._buffer)
 
+    def capacity(self):
+        return self._buffer.maxlen
+        
     def pop(self):
         return self._buffer.popleft()
 
@@ -63,14 +72,13 @@ class RingBuffer:
         self._buffer.append(item)
 
     def magnitude(self, f):
-        return self._zp - 2.5*math.log10(f - self._fo)
+        return self._zp - 2.5 * math.log10(f - self._fo)
 
     def frequencies(self):
-        return [item['freq'] for item in self._buffer]
-        
+        return [item["freq"] for item in self._buffer]
+
     def statistics(self):
-        frequencies = tuple(item['freq'] for item in self._buffer)
+        frequencies = tuple(item["freq"] for item in self._buffer)
         central = self._central_func(frequencies)
         stdev = statistics.stdev(frequencies, central)
         return central, stdev
-    
