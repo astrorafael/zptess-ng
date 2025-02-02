@@ -22,17 +22,18 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-  'typing-extensions', # Self for Python < 3.11
-  'python-decouple',  # Get info from enviromental variables
+  "typing-extensions", # Self for Python < 3.11
+  "python-decouple",  # Get info from enviromental variables
   # Async Database stuff
-  'SQLAlchemy[asyncio]',
-  'alembic',
-  'aiosqlite',
+  "SQLAlchemy[asyncio]",
+  "alembic",
+  "aiosqlite",
   #'exceptiongroups', # For Python < 3.11 when using TaskGroups
   #'asyncstdlib', # async counterparts such as aenumerate()
-
+  # synchronous style publish/subscribe mechanism
+  "pypubsub",
   # My own library of Python utilities
-  'lica[photometer]',
+  "lica[photometer]",
 ]
 
 [project.urls]
