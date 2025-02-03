@@ -49,6 +49,7 @@ zp-db-qa = "zptess.cli.dbase.qa:main"
 zp-db-fix = "zptess.cli.dbase.fix:main"
 # These are photometer related commands
 zp-read =  "zptess.cli.reader:main"
+zp-calib =  "zptess.cli.calibrate:main"
 
 [build-system]
 requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
