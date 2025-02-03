@@ -11,7 +11,7 @@
 import logging
 import asyncio
 
-from typing import Mapping, Dict, Tuple, List, Generator
+from typing import Any, Mapping, Dict, Tuple, List, Generator
 
 
 # ---------------------------
@@ -42,7 +42,7 @@ from ..lib.dbase.model import Config
 PhotResult = Generator[Tuple[str, List[float], int], Tuple[Self, Role], None]
 
 
-SECTION = {Role.REF: "ref-device", Role.TEST: "test-device"}
+SECTION1 = {Role.REF: "ref-device", Role.TEST: "test-device"}
 SECTION2 = {Role.REF: "ref-stats", Role.TEST: "test-stats"}
 
 # -----------------------
@@ -69,29 +69,23 @@ class Reader:
 
     def __init__(
         self,
-        models: Mapping[Role, PhotModel],
-        sensors: Mapping[Role, Sensor],
-        endpoint: Mapping[Role, str],
-        old_proto: Mapping[Role, bool],
-        buffered: bool = False,
+        ref_params: Mapping[str, Any] | None = None,
+        test_params: Mapping[str, Any] | None = None,
     ):
         self.Session = AsyncSession
+        self.param = {Role.REF: ref_params, Role.TEST: test_params}
         self.photometer = dict()
-        self.producer = dict()
-        self.consumer = dict()
         self.ring = dict()
-        self.cur_mac = dict()
         self.phot_info = dict()
-        self.sensor = sensors
-        self.model = models
-        self.old_proto = old_proto
-        self.endpoint = endpoint
-        self.buffered = buffered
-
+        self.roles = list()
+        self.task = dict()
+        if ref_params is not None:
+            self.roles.append(Role.REF)
+        if test_params is not None:
+            self.roles.append(Role.TEST)
 
     def buffer(self, role: Role):
         return self.ring[role]
-    
 
     async def _load(self, session, section: str, prop: str) -> str | None:
         async with session:
@@ -100,60 +94,50 @@ class Reader:
 
     async def init(self) -> None:
         log.info(
-            "Initializing %s controller for %s (buffered=%s)",
+            "Initializing %s controller for %s",
             self.__class__.__name__,
-            [k for k in self.model.keys()],
-            self.buffered,
+            self.roles,
         )
         builder = PhotometerBuilder(engine)  # For the reference photometer using database info
-        roles = sorted(self.model.keys())
-
         async with self.Session() as session:
-            for role in roles:
-                v = await self._load(session, SECTION[role], "model")
-                self.model[role] = self.model[role] or PhotModel(v)
-                v = await self._load(session, SECTION[role], "sensor")
-                self.sensor[role] = self.sensor[role] or Sensor(v)
-                v = await self._load(session, SECTION[role], "old-proto")
-                self.old_proto[role] = self.old_proto[role] or bool(v)
-                v = await self._load(session, SECTION[role], "endpoint")
-                self.endpoint[role] = self.endpoint[role] or v
-                self.photometer[role] = builder.build(self.model[role], role)
-                if self.buffered:
-                    capacity = int(await self._load(session, SECTION2[role], "samples"))
-                else:
-                    capacity = 1
-                self.ring[role] = RingBuffer(capacity)
-                self.producer[role] = asyncio.create_task(self.photometer[role].readings())
+            for role in self.roles:
+                v = await self._load(session, SECTION1[role], "model")
+                self.param[role]["model"] = self.param[role]["model"] or PhotModel(v)
+                v = await self._load(session, SECTION1[role], "sensor")
+                self.param[role]["sensor"] = self.param[role]["sensor"] or Sensor(v)
+                v = await self._load(session, SECTION1[role], "old-proto")
+                self.param[role]["old_proto"] = self.param[role]["old_proto"] or bool(v)
+                v = await self._load(session, SECTION1[role], "endpoint")
+                self.param[role]["endpoint"] = self.param[role]["endpoint"] or v
+                self.photometer[role] = builder.build(self.param[role]["model"], role)
+                #capacity = int(await self._load(session, SECTION2[role], "samples"))
+                self.ring[role] = RingBuffer(capacity=1)
+                self.task[role] = asyncio.create_task(self.photometer[role].readings())
+                logging.getLogger(str(role)).setLevel(self.param[role]["log_level"])
 
     async def info(self, role: Role) -> Dict[str, str]:
         log = logging.getLogger(role.tag())
         try:
             phot_info = await self.photometer[role].get_info()
         except asyncio.exceptions.TimeoutError:
-            txt = f"Failed contacting {role.tag()} photometer"
-            log.error(txt)
-            return {"error_messg": txt}
+            log.critical("Failed contacting %s photometer",role.tag())
+            raise
         except Exception as e:
-            log.error(e)
-            txt = f"{e}"
-            return {"err_msg": txt}
+            log.critical(e)
+            raise
         else:
             phot_info["endpoint"] = role.endpoint()
-            phot_info["sensor"] = phot_info["sensor"] or self.sensor[role].value
+            phot_info["sensor"] = phot_info["sensor"] or self.param[role]["sensor"].value
             phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
             self.phot_info[role] = phot_info
             return phot_info
-
 
     async def _receive(self, role: Role) -> None:
         while True:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
-            pub.sendMessage('reading_info', controller=self, role=role, reading=msg)
-
-         
+            pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
 
     async def receive(self) -> None:
-        coros = [self._receive(role) for role in sorted(self.photometer.keys())]
+        coros = [self._receive(role) for role in self.roles]
         await asyncio.gather(*coros)

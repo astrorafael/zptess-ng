@@ -54,23 +54,24 @@ async def log_phot_info(controller: Reader, role: Role) -> None:
         log.info("%-12s: %s", key.upper(), value)
 
 
-
-def onReading(controller: Reader, role: Role, reading: Mapping[str,Any]) -> None:
+def onReading(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
     log = logging.getLogger(role.tag())
-    line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
+    name = controller.phot_info[role]["name"]
+    line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']}"
     log.info(line)
 
 
-def onReading2(controller: Reader, role: Role, reading: Mapping[str,Any]) -> None:
-    log = logging.getLogger(role.tag())
-    current = len(controller.buffer(role))
-    total = controller.buffer(role).capacity()
-    name = controller.phot_info[role]["name"]
-    if current < total:
-        log.info("%-9s waiting for enough samples, %03d remaining",name, total-current)
-    else:
-        line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
-        log.info(line)
+# def onReading2(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
+#     log = logging.getLogger(role.tag())
+#     current = len(controller.buffer(role))
+#     total = controller.buffer(role).capacity()
+#     name = controller.phot_info[role]["name"]
+#     if current < total:
+#         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
+#     else:
+#         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
+#         log.info(line)
+
 
 # -----------------
 # Auxiliary classes
@@ -82,17 +83,18 @@ def onReading2(controller: Reader, role: Role, reading: Mapping[str,Any]) -> Non
 # -------------------
 
 
-
 async def cli_read_ref(args: Namespace) -> None:
+    ref_params = {
+        "model": args.ref_model,
+        "sensor": args.ref_sensor,
+        "endpoint": args.ref_endpoint,
+        "old_proto": args.ref_old_proto,
+        "log_level": logging.INFO if args.ref_raw_message else logging.WARN,
+    }
     controller = Reader(
-        models={Role.REF: args.ref_model},
-        sensors={Role.REF: args.ref_sensor},
-        endpoint={Role.REF: args.ref_endpoint},
-        old_proto={Role.REF: args.ref_old_proto},
-        buffered=args.buffered,
+        ref_params=ref_params,
     )
-    level = logging.INFO if args.ref_raw_message else logging.WARN
-    logging.getLogger(str(Role.REF)).setLevel(level)
+    pub.subscribe(onReading, "reading_info")
     await controller.init()
     await log_phot_info(controller, Role.REF)
     if args.query:
@@ -101,15 +103,17 @@ async def cli_read_ref(args: Namespace) -> None:
 
 
 async def cli_read_test(args: Namespace) -> None:
+    test_params = {
+        "model": args.test_model,
+        "sensor": args.test_sensor,
+        "endpoint": args.test_endpoint,
+        "old_proto": args.test_old_proto,
+        "log_level": logging.INFO if args.test_raw_message else logging.WARN,
+    }
     controller = Reader(
-        models={Role.TEST: args.test_model},
-        sensors={Role.TEST: args.test_sensor},
-        endpoint={Role.TEST: args.test_endpoint},
-        old_proto={Role.TEST: args.test_old_proto},
-        buffered=args.buffered,
+        test_params=test_params,
     )
-    level = logging.INFO if args.test_raw_message else logging.WARN
-    logging.getLogger(str(Role.TEST)).setLevel(level)
+    pub.subscribe(onReading, "reading_info")
     await controller.init()
     await log_phot_info(controller, Role.TEST)
     if args.query:
@@ -118,18 +122,25 @@ async def cli_read_test(args: Namespace) -> None:
 
 
 async def cli_read_both(args: Namespace) -> None:
+    ref_params = {
+        "model": args.ref_model,
+        "sensor": args.ref_sensor,
+        "endpoint": args.ref_endpoint,
+        "old_proto": args.ref_old_proto,
+        "log_level": logging.INFO if args.ref_raw_message else logging.WARN,
+    }
+    test_params = {
+        "model": args.test_model,
+        "sensor": args.test_sensor,
+        "endpoint": args.test_endpoint,
+        "old_proto": args.test_old_proto,
+        "log_level": logging.INFO if args.test_raw_message else logging.WARN,
+    }
     controller = Reader(
-        models={Role.REF: args.ref_model, Role.TEST: args.test_model},
-        sensors={Role.REF: args.ref_sensor, Role.TEST: args.test_sensor},
-        endpoint={Role.REF: args.ref_endpoint, Role.TEST: args.test_endpoint},
-        old_proto={Role.REF: args.ref_old_proto, Role.TEST: args.test_old_proto},
-        buffered=args.buffered,
+        ref_params=ref_params,
+        test_params=test_params,
     )
-    level1 = logging.INFO if args.ref_raw_message else logging.WARN
-    level2 = logging.INFO if args.test_raw_message else logging.WARN
-    logging.getLogger(str(Role.REF)).setLevel(level1)
-    logging.getLogger(str(Role.TEST)).setLevel(level2)
-    pub.subscribe(onReading2, 'reading_info')
+    pub.subscribe(onReading, "reading_info")
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
