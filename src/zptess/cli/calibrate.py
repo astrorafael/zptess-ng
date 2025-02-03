@@ -27,7 +27,7 @@ from lica.asyncio.photometer import Role
 
 from .. import __version__
 from .util import parser as prs
-from ..lib.controller import Reader
+from ..lib.controller import Calibrator
 
 # ----------------
 # Module constants
@@ -47,30 +47,23 @@ log = logging.getLogger(__name__.split(".")[-1])
 # ------------------
 
 
-async def log_phot_info(controller: Reader, role: Role) -> None:
+async def log_phot_info(controller: Calibrator, role: Role) -> None:
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
     for key, value in sorted(phot_info.items()):
         log.info("%-12s: %s", key.upper(), value)
 
 
-def onReading(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
+def onReading(controller: Calibrator, role: Role, reading: Mapping[str, Any]) -> None:
     log = logging.getLogger(role.tag())
+    current = len(controller.buffer(role))
+    total = controller.buffer(role).capacity()
     name = controller.phot_info[role]["name"]
-    line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']}"
-    log.info(line)
-
-
-# def onReading2(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
-#     log = logging.getLogger(role.tag())
-#     current = len(controller.buffer(role))
-#     total = controller.buffer(role).capacity()
-#     name = controller.phot_info[role]["name"]
-#     if current < total:
-#         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
-#     else:
-#         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
-#         log.info(line)
+    if current < total:
+        log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
+    else:
+        line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
+        log.info(line)
 
 
 # -----------------
@@ -83,45 +76,7 @@ def onReading(controller: Reader, role: Role, reading: Mapping[str, Any]) -> Non
 # -------------------
 
 
-async def cli_read_ref(args: Namespace) -> None:
-    ref_params = {
-        "model": args.ref_model,
-        "sensor": args.ref_sensor,
-        "endpoint": args.ref_endpoint,
-        "old_proto": args.ref_old_proto,
-        "log_level": logging.INFO if args.ref_raw_message else logging.WARN,
-    }
-    controller = Reader(
-        ref_params=ref_params,
-    )
-    pub.subscribe(onReading, "reading_info")
-    await controller.init()
-    await log_phot_info(controller, Role.REF)
-    if args.query:
-        return
-    await controller.receive()
-
-
-async def cli_read_test(args: Namespace) -> None:
-    test_params = {
-        "model": args.test_model,
-        "sensor": args.test_sensor,
-        "endpoint": args.test_endpoint,
-        "old_proto": args.test_old_proto,
-        "log_level": logging.INFO if args.test_raw_message else logging.WARN,
-    }
-    controller = Reader(
-        test_params=test_params,
-    )
-    pub.subscribe(onReading, "reading_info")
-    await controller.init()
-    await log_phot_info(controller, Role.TEST)
-    if args.query:
-        return
-    await controller.receive()
-
-
-async def cli_read_both(args: Namespace) -> None:
+async def cli_calib_test(args: Namespace) -> None:
     ref_params = {
         "model": args.ref_model,
         "sensor": args.ref_sensor,
@@ -136,9 +91,18 @@ async def cli_read_both(args: Namespace) -> None:
         "old_proto": args.test_old_proto,
         "log_level": logging.INFO if args.test_raw_message else logging.WARN,
     }
-    controller = Reader(
+    common_params = {
+        "buffer": args.buffer,
+        "dry_run": args.dry_run,
+        "update": args.update,
+        "central": args.central,
+        "period": args.period,
+        "zp_fict": args.zp_fict
+    }
+    controller = Calibrator(
         ref_params=ref_params,
         test_params=test_params,
+        common_params = common_params
     )
     pub.subscribe(onReading, "reading_info")
     await controller.init()
@@ -146,7 +110,7 @@ async def cli_read_both(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
-    await controller.receive()
+    #await controller.receive()
 
 
 # -----------------
@@ -157,19 +121,11 @@ async def cli_read_both(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
     p = subparser.add_parser(
-        "ref", parents=[prs.info(), prs.ref()], help="Read reference photometer"
+        "test",
+        parents=[prs.info(), prs.stats(), prs.upd(), prs.dry(), prs.buf(), prs.ref(), prs.test()],
+        help="Calibrate test photometer",
     )
-    p.set_defaults(func=cli_read_ref)
-    p = subparser.add_parser(
-        "test", parents=[prs.info(),  prs.test()], help="Read test photometer"
-    )
-    p.set_defaults(func=cli_read_test)
-    p = subparser.add_parser(
-        "both",
-        parents=[prs.info(), prs.ref(), prs.test()],
-        help="read both photometers",
-    )
-    p.set_defaults(func=cli_read_both)
+    p.set_defaults(func=cli_calib_test)
 
 
 async def cli_main(args: Namespace) -> None:

@@ -64,7 +64,6 @@ log = logging.getLogger(__name__.split(".")[-1])
 class Reader:
     """
     Reader Controller specialized in reading the photometers
-    with or without ring buffer
     """
 
     def __init__(
@@ -83,6 +82,7 @@ class Reader:
             self.roles.append(Role.REF)
         if test_params is not None:
             self.roles.append(Role.TEST)
+        self.capacity = 1
 
     def buffer(self, role: Role):
         return self.ring[role]
@@ -111,7 +111,7 @@ class Reader:
                 self.param[role]["endpoint"] = self.param[role]["endpoint"] or v
                 self.photometer[role] = builder.build(self.param[role]["model"], role)
                 #capacity = int(await self._load(session, SECTION2[role], "samples"))
-                self.ring[role] = RingBuffer(capacity=1)
+                self.ring[role] = RingBuffer(capacity=self.capacity)
                 self.task[role] = asyncio.create_task(self.photometer[role].readings())
                 logging.getLogger(str(role)).setLevel(self.param[role]["log_level"])
 
@@ -141,3 +141,28 @@ class Reader:
     async def receive(self) -> None:
         coros = [self._receive(role) for role in self.roles]
         await asyncio.gather(*coros)
+
+
+class Calibrator(Reader):
+    """
+    Reader Controller specialized in reading the photometers
+    """
+
+    def __init__(
+        self,
+        ref_params: Mapping[str, Any] | None = None,
+        test_params: Mapping[str, Any] | None = None,
+        common_params:  Mapping[str, Any]  | None = None,
+    ):
+        super().__init__(ref_params, test_params)
+        self.common_param = common_params
+
+    async def init(self) -> None:
+        log.info(
+            "Initializing %s controller for %s",
+            self.__class__.__name__,
+            self.roles,
+        )
+
+        v = int(await self._load(session, SECTION2[role], "samples"))
+        self.capacity = self.common_param["buffer"]

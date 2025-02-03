@@ -53,14 +53,14 @@ def odir() -> ArgumentParser:
     return parser
 
 
-def buffer() -> ArgumentParser:
+def buf() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         "-b",
-        "--buffered",
-        default=False,
-        action="store_true",
-        help="Use circular buffer (default %(default)s)",
+        "--buffer",
+        type=int,
+        default=None,
+        help="Circular buffer size (default %(default)s)",
     )
     return parser
 
@@ -196,7 +196,6 @@ def stats() -> ArgumentParser:
         type=CentralTendency,
         default=None,
         choices=CentralTendency,
-        metavar="<estimator>",
         help="central tendency estimator, defaults to %(default)s",
     )
     parser.add_argument(
@@ -205,8 +204,8 @@ def stats() -> ArgumentParser:
         type=float,
         default=None,
         action="store",
-        metavar="<float>",
-        help="Wait period between statistics",
+        metavar="<sec.>",
+        help="Wait period between statistics [s], defaults to %(default)s",
     )
     parser.add_argument(
         "-z",
@@ -215,6 +214,6 @@ def stats() -> ArgumentParser:
         default=None,
         action="store",
         metavar="<float>",
-        help="Alternate ZP to use for both photometers",
+        help="Alternative ficticious Zero Point to use for both photometers, defaults to %(default)s",
     )
     return parser
