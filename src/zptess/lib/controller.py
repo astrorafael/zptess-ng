@@ -19,6 +19,8 @@ from typing import Any, Mapping, Dict, Tuple, List, Generator
 # Third-party library imports
 # ----------------------------
 
+import statistics
+
 from pubsub import pub
 
 from typing_extensions import Self
@@ -187,11 +189,9 @@ class Calibrator(Reader):
         self.ring[Role.TEST] = RingBuffer(capacity=self.capacity, central=self.central)
 
     async def producer_task(self, role: Role) -> None:
-        log = logging.getLogger(role.tag())
         while not self.is_calibrated:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
-            log.info("CUCU")
 
     async def fill_buffer(self, role: Role) -> None:
         while len(self.ring[role]) < self.capacity:
@@ -199,19 +199,30 @@ class Calibrator(Reader):
             self.ring[role].append(msg)
             pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
 
-    def magnitude(self, role: Role, freq: float):
-        return self.zp_fict - 2.5 * math.log10(freq - self.phot_info[role]["freq_offset"])
+    def magnitude(self, role: Role, freq: float, freq_offset):
+        return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
+
+    def round_statistics(self, role: Role):
+        log = logging.getLogger(role.tag())
+        freq_offset = self.phot_info[role]["freq_offset"]
+        freq = stdev = mag = None
+        try:
+            freq, stdev = self.ring[role].statistics()
+            mag = self.magnitude(role, freq, freq_offset)
+        except statistics.StatisticsError as e:
+            log.error("Statistics error: %s", e)
+        except ValueError as e:
+            log.error("math.log10() error for freq=%s, freq_offset=%s}: %s", freq, freq_offset, e)
+        finally: 
+            return freq, stdev, mag
 
     async def statistics(self):
-        # the range boundary is not an error
         for i in range(1, self.nrounds + 1):
             log.info("ROUND %d/%d", i, self.nrounds)
-            ref_freq, ref_stdev = self.ring[Role.REF].statistics()
-            test_freq, test_stdev = self.ring[Role.REF].statistics()
-            ref_mag = self.magnitude(Role.REF, ref_freq)
-            test_mag = self.magnitude(Role.TEST, test_freq)
-            mag_diff = ref_mag - test_mag
-            await asyncio.sleep(10)
+            self.round_statistics(Role.REF)
+            self.round_statistics(Role.TEST)
+            if i !=  self.nrounds:
+                await asyncio.sleep(10)
         self.is_calibrated = True
 
     async def calibrate(self) -> None:
