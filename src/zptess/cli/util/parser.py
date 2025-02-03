@@ -86,6 +86,17 @@ def dry() -> ArgumentParser:
     )
     return parser
 
+def author() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-a",
+        "--author",
+        nargs="+",
+        default=None,
+        help="Calibration author (default %(default)s)",
+    )
+    return parser
+
 def upd() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
@@ -199,21 +210,35 @@ def stats() -> ArgumentParser:
         help="central tendency estimator, defaults to %(default)s",
     )
     parser.add_argument(
+        "-R",
+        "--rounds",
+        type=float,
+        default=None,
+        metavar="<float>",
+        help="Alternative ficticious Zero Point to use for both photometers, defaults to %(default)s",
+    )
+    parser.add_argument(
         "-P",
         "--period",
         type=float,
         default=None,
-        action="store",
         metavar="<sec.>",
-        help="Wait period between statistics [s], defaults to %(default)s",
+        help="Wait period between rounds[s], defaults to %(default)s",
     )
     parser.add_argument(
-        "-z",
+        "-Z",
         "--zp-fict",
         type=float,
         default=None,
-        action="store",
         metavar="<float>",
         help="Alternative ficticious Zero Point to use for both photometers, defaults to %(default)s",
+    )
+    parser.add_argument(
+        "-O",
+        "--zp-offset",
+        type=float,
+        default=None,
+        metavar="<float>",
+        help="Offset to add to calibrated Zero Point, defaults to %(default)s",
     )
     return parser

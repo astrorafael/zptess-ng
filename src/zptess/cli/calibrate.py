@@ -62,6 +62,7 @@ def onReading(controller: Calibrator, role: Role, reading: Mapping[str, Any]) ->
     if current < total:
         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
     else:
+        return
         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
         log.info(line)
 
@@ -97,7 +98,10 @@ async def cli_calib_test(args: Namespace) -> None:
         "update": args.update,
         "central": args.central,
         "period": args.period,
-        "zp_fict": args.zp_fict
+        "zp_fict": args.zp_fict,
+        "zp_offset": args.zp_offset,
+        "rounds": args.rounds,
+        "author": " ".join(args.author) if args.author else None
     }
     controller = Calibrator(
         ref_params=ref_params,
@@ -110,7 +114,7 @@ async def cli_calib_test(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
-    #await controller.receive()
+    await controller.receive()
 
 
 # -----------------
@@ -122,7 +126,7 @@ def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
     p = subparser.add_parser(
         "test",
-        parents=[prs.info(), prs.stats(), prs.upd(), prs.dry(), prs.buf(), prs.ref(), prs.test()],
+        parents=[prs.info(), prs.stats(), prs.upd(), prs.dry(), prs.buf(), prs.author(), prs.ref(), prs.test()],
         help="Calibrate test photometer",
     )
     p.set_defaults(func=cli_calib_test)
