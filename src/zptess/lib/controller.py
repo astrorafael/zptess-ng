@@ -8,6 +8,7 @@
 # System wide imports
 # -------------------
 
+import math
 import logging
 import asyncio
 
@@ -83,7 +84,6 @@ class Reader:
             self.roles.append(Role.REF)
         if test_params is not None:
             self.roles.append(Role.TEST)
-        self.capacity = 1
 
     def buffer(self, role: Role):
         return self.ring[role]
@@ -111,8 +111,7 @@ class Reader:
                 v = await self._load(session, SECTION1[role], "endpoint")
                 self.param[role]["endpoint"] = self.param[role]["endpoint"] or v
                 self.photometer[role] = builder.build(self.param[role]["model"], role)
-                #capacity = int(await self._load(session, SECTION2[role], "samples"))
-                self.ring[role] = RingBuffer(capacity=self.capacity)
+                self.ring[role] = RingBuffer(capacity=1)
                 self.task[role] = asyncio.create_task(self.photometer[role].readings())
                 logging.getLogger(str(role)).setLevel(self.param[role]["log_level"])
 
@@ -121,7 +120,7 @@ class Reader:
         try:
             phot_info = await self.photometer[role].get_info()
         except asyncio.exceptions.TimeoutError:
-            log.critical("Failed contacting %s photometer",role.tag())
+            log.critical("Failed contacting %s photometer", role.tag())
             raise
         except Exception as e:
             log.critical(e)
@@ -129,18 +128,19 @@ class Reader:
         else:
             phot_info["endpoint"] = role.endpoint()
             phot_info["sensor"] = phot_info["sensor"] or self.param[role]["sensor"].value
-            phot_info["freq_offset"] = phot_info["freq_offset"] or 0.0
+            v = phot_info["freq_offset"] or 0.0
+            phot_info["freq_offset"] = float(v)
             self.phot_info[role] = phot_info
             return phot_info
 
-    async def _receive(self, role: Role) -> None:
+    async def fill_buffer(self, role: Role) -> None:
         while True:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
             pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
 
     async def receive(self) -> None:
-        coros = [self._receive(role) for role in self.roles]
+        coros = [self.fill_buffer(role) for role in self.roles]
         await asyncio.gather(*coros)
 
 
@@ -153,7 +153,7 @@ class Calibrator(Reader):
         self,
         ref_params: Mapping[str, Any] | None = None,
         test_params: Mapping[str, Any] | None = None,
-        common_params:  Mapping[str, Any]  | None = None,
+        common_params: Mapping[str, Any] | None = None,
     ):
         super().__init__(ref_params, test_params)
         self.common_param = common_params
@@ -165,6 +165,7 @@ class Calibrator(Reader):
         self.author = None
 
     async def init(self) -> None:
+        await super().init()
         async with self.Session() as session:
             v = await self._load(session, SECTION2[Role.TEST], "samples")
             self.capacity = self.common_param["buffer"] or int(v)
@@ -181,7 +182,46 @@ class Calibrator(Reader):
             v = await self._load(session, "calibration", "author")
             self.author = self.common_param["author"] or v
         self.dry_run = self.common_param["dry_run"]
-        self.update =  self.common_param["update"]
-        # called after because of self.capacity initialization
-        await super().init()
+        self.update = self.common_param["update"]
+        self.ring[Role.REF] = RingBuffer(capacity=self.capacity, central=self.central)
+        self.ring[Role.TEST] = RingBuffer(capacity=self.capacity, central=self.central)
 
+    async def producer_task(self, role: Role) -> None:
+        log = logging.getLogger(role.tag())
+        while not self.is_calibrated:
+            msg = await self.photometer[role].queue.get()
+            self.ring[role].append(msg)
+            log.info("CUCU")
+
+    async def fill_buffer(self, role: Role) -> None:
+        while len(self.ring[role]) < self.capacity:
+            msg = await self.photometer[role].queue.get()
+            self.ring[role].append(msg)
+            pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
+
+    def magnitude(self, role: Role, freq: float):
+        return self.zp_fict - 2.5 * math.log10(freq - self.phot_info[role]["freq_offset"])
+
+    async def statistics(self):
+        # the range boundary is not an error
+        for i in range(1, self.nrounds + 1):
+            log.info("ROUND %d/%d", i, self.nrounds)
+            ref_freq, ref_stdev = self.ring[Role.REF].statistics()
+            test_freq, test_stdev = self.ring[Role.REF].statistics()
+            ref_mag = self.magnitude(Role.REF, ref_freq)
+            test_mag = self.magnitude(Role.TEST, test_freq)
+            mag_diff = ref_mag - test_mag
+            await asyncio.sleep(10)
+        self.is_calibrated = True
+
+    async def calibrate(self) -> None:
+        coros = [self.fill_buffer(role) for role in self.roles]
+        # Waiting for both circular buffers to be filled
+        await asyncio.gather(*coros)
+        self.producer = [None, None]
+        # background task that fill the circular buffers while we perform
+        # the calibratu¡ion rounds
+        self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
+        self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
+        self.is_calibrated = False
+        await asyncio.gather(self.statistics(), *self.producer)

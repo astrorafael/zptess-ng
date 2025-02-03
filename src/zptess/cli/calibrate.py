@@ -114,7 +114,7 @@ async def cli_calib_test(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.query:
         return
-    await controller.receive()
+    await controller.calibrate()
 
 
 # -----------------

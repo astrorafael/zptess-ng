@@ -212,10 +212,10 @@ def stats() -> ArgumentParser:
     parser.add_argument(
         "-R",
         "--rounds",
-        type=float,
+        type=int,
         default=None,
-        metavar="<float>",
-        help="Alternative ficticious Zero Point to use for both photometers, defaults to %(default)s",
+        metavar="<N>",
+        help="Number of calibration rounds, defaults to %(default)s",
     )
     parser.add_argument(
         "-P",

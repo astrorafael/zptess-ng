@@ -44,13 +44,9 @@ class RingBuffer:
     def __init__(
         self,
         capacity: int = 75,
-        zp: float = 20.50,
-        fo: float = 0.0,
         central: CentralTendency = CentralTendency.MEDIAN,
     ):
         self._buffer = collections.deque([], capacity)
-        self._zp = zp
-        self._fo = fo
         self._central = central
         if central == CentralTendency.MEDIAN:
             self._central_func = statistics.median_low
@@ -70,9 +66,6 @@ class RingBuffer:
 
     def append(self, item):
         self._buffer.append(item)
-
-    def magnitude(self, f):
-        return self._zp - 2.5 * math.log10(f - self._fo)
 
     def frequencies(self):
         return [item["freq"] for item in self._buffer]
