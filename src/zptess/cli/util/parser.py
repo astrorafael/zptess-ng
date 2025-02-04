@@ -64,6 +64,7 @@ def buf() -> ArgumentParser:
     )
     return parser
 
+
 def dry() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
@@ -74,6 +75,7 @@ def dry() -> ArgumentParser:
         help="Query photometer info and exit (default %(default)s)",
     )
     return parser
+
 
 def no_persist() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
@@ -86,6 +88,7 @@ def no_persist() -> ArgumentParser:
     )
     return parser
 
+
 def author() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
@@ -97,6 +100,7 @@ def author() -> ArgumentParser:
     )
     return parser
 
+
 def upd() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
@@ -104,7 +108,20 @@ def upd() -> ArgumentParser:
         "--update",
         default=False,
         action="store_true",
-        help="Update Zero Point in photometer (default %(default)s)",
+        help="Update Zero Point in test photometer (default %(default)s)",
+    )
+    return parser
+
+
+def wrzp() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-z",
+        "--zero-point",
+        type=float,
+        metavar="<ZP>",
+        required=True,
+        help="Writed Zero Point to test photometer (default %(default)s)",
     )
     return parser
 

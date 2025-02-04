@@ -41,20 +41,22 @@ DESCRIPTION = "TESS-W Reader tool"
 
 # get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
+controller = None
 
 # ------------------
 # Auxiliar functions
 # ------------------
 
 
-async def log_phot_info(controller: Reader, role: Role) -> None:
+async def log_phot_info(role: Role) -> None:
+    global controller
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
     for key, value in sorted(phot_info.items()):
         log.info("%-12s: %s", key.upper(), value)
 
 
-def onReading(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
+def onReading(role: Role, reading: Mapping[str, Any]) -> None:
     log = logging.getLogger(role.tag())
     name = controller.phot_info[role]["name"]
     line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']}"
@@ -84,6 +86,7 @@ def onReading(controller: Reader, role: Role, reading: Mapping[str, Any]) -> Non
 
 
 async def cli_read_ref(args: Namespace) -> None:
+    global controller
     ref_params = {
         "model": args.ref_model,
         "sensor": args.ref_sensor,
@@ -96,13 +99,14 @@ async def cli_read_ref(args: Namespace) -> None:
     )
     pub.subscribe(onReading, "reading_info")
     await controller.init()
-    await log_phot_info(controller, Role.REF)
+    await log_phot_info(Role.REF)
     if args.dry_run:
         return
     await controller.receive()
 
 
 async def cli_read_test(args: Namespace) -> None:
+    global controller
     test_params = {
         "model": args.test_model,
         "sensor": args.test_sensor,
@@ -115,13 +119,14 @@ async def cli_read_test(args: Namespace) -> None:
     )
     pub.subscribe(onReading, "reading_info")
     await controller.init()
-    await log_phot_info(controller, Role.TEST)
+    await log_phot_info(Role.TEST)
     if args.dry_run:
         return
     await controller.receive()
 
 
 async def cli_read_both(args: Namespace) -> None:
+    global controller
     ref_params = {
         "model": args.ref_model,
         "sensor": args.ref_sensor,
@@ -142,8 +147,8 @@ async def cli_read_both(args: Namespace) -> None:
     )
     pub.subscribe(onReading, "reading_info")
     await controller.init()
-    await log_phot_info(controller, Role.REF)
-    await log_phot_info(controller, Role.TEST)
+    await log_phot_info(Role.REF)
+    await log_phot_info(Role.TEST)
     if args.dry_run:
         return
     await controller.receive()
@@ -160,9 +165,7 @@ def add_args(parser: ArgumentParser):
         "ref", parents=[prs.dry(), prs.ref()], help="Read reference photometer"
     )
     p.set_defaults(func=cli_read_ref)
-    p = subparser.add_parser(
-        "test", parents=[prs.dry(),  prs.test()], help="Read test photometer"
-    )
+    p = subparser.add_parser("test", parents=[prs.dry(), prs.test()], help="Read test photometer")
     p.set_defaults(func=cli_read_test)
     p = subparser.add_parser(
         "both",

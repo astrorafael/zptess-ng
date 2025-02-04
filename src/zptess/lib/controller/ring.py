@@ -59,13 +59,13 @@ class RingBuffer:
 
     def __len__(self) -> int:
         return len(self._buffer)
-    
+
     def __getitem__(self, i: int) -> Message:
         return self._buffer[i]
 
     def capacity(self) -> int:
         return self._buffer.maxlen
-        
+
     def pop(self) -> Message:
         return self._buffer.popleft()
 
