@@ -46,7 +46,6 @@ log = logging.getLogger(__name__.split(".")[-1])
 # Auxiliar functions
 # ------------------
 
-
 async def log_phot_info(controller: Calibrator, role: Role) -> None:
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
@@ -54,7 +53,8 @@ async def log_phot_info(controller: Calibrator, role: Role) -> None:
         log.info("%-12s: %s", key.upper(), value)
 
 
-def onReading(controller: Calibrator, role: Role, reading: Mapping[str, Any]) -> None:
+def onReading(role: Role, reading: Mapping[str, Any]) -> None:
+    global controller
     log = logging.getLogger(role.tag())
     current = len(controller.buffer(role))
     total = controller.buffer(role).capacity()
@@ -66,6 +66,8 @@ def onReading(controller: Calibrator, role: Role, reading: Mapping[str, Any]) ->
         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
         log.info(line)
 
+def onRound(current: int, nrounds: int) -> None:
+    log.info("ROUND %d/%d", current, nrounds)
 
 # -----------------
 # Auxiliary classes
@@ -78,6 +80,9 @@ def onReading(controller: Calibrator, role: Role, reading: Mapping[str, Any]) ->
 
 
 async def cli_calib_test(args: Namespace) -> None:
+    
+    global controller
+
     ref_params = {
         "model": args.ref_model,
         "sensor": args.ref_sensor,
@@ -109,6 +114,7 @@ async def cli_calib_test(args: Namespace) -> None:
         common_params = common_params
     )
     pub.subscribe(onReading, "reading_info")
+    pub.subscribe(onRound, "round_info")
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)

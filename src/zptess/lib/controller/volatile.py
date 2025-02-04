@@ -113,7 +113,7 @@ class Calibrator(Reader):
         while len(self.ring[role]) < self.capacity:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
-            pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
+            pub.sendMessage("reading_info", role=role, reading=msg)
 
     def magnitude(self, role: Role, freq: float, freq_offset):
         return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
@@ -134,7 +134,7 @@ class Calibrator(Reader):
 
     async def statistics(self):
         for i in range(1, self.nrounds + 1):
-            log.info("ROUND %d/%d", i, self.nrounds)
+            pub.sendMessage("round_info", current=i, nrounds=self.nrounds)
             self.round_statistics(Role.REF)
             self.round_statistics(Role.TEST)
             if i !=  self.nrounds:
