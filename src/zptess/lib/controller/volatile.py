@@ -16,7 +16,6 @@ from collections import defaultdict
 from typing import Any, Mapping
 
 
-
 # ---------------------------
 # Third-party library imports
 # ----------------------------
@@ -24,7 +23,7 @@ from typing import Any, Mapping
 import statistics
 
 from pubsub import pub
-from lica.asyncio.photometer import  Role
+from lica.asyncio.photometer import Role
 
 # --------------
 # local imports
@@ -103,7 +102,7 @@ class Calibrator(Reader):
             val_arg = self.common_param["author"]
             self.author = val_arg if val_arg is not None else val_db
             # The absolute ZP is the stored ZP in the reference photometer.
-            self.zp_abs =  float(await self._load(session, "ref-device", "zp"))
+            self.zp_abs = float(await self._load(session, "ref-device", "zp"))
         self.dry_run = self.common_param["dry_run"]
         self.update = self.common_param["update"]
         self.ring[Role.REF] = RingBuffer(capacity=self.capacity, central=self.central)
@@ -134,7 +133,7 @@ class Calibrator(Reader):
             log.error("Statistics error: %s", e)
         except ValueError as e:
             log.error("math.log10() error for freq=%s, freq_offset=%s}: %s", freq, freq_offset, e)
-        finally: 
+        finally:
             return freq, stdev, mag
 
     async def statistics(self):
@@ -142,17 +141,27 @@ class Calibrator(Reader):
             round_info = defaultdict(dict)
             for role in self.roles:
                 round_info["stats"][role] = self.round_statistics(role)
-                round_info["Ti"][role] = self.ring[role][0]['tstamp']
-                round_info["Tf"][role] = self.ring[role][-1]['tstamp']
-                round_info["T"][role] = (round_info["Tf"][role] - round_info["Ti"][role]).total_seconds()
+                round_info["Ti"][role] = self.ring[role][0]["tstamp"]
+                round_info["Tf"][role] = self.ring[role][-1]["tstamp"]
+                round_info["T"][role] = (
+                    round_info["Tf"][role] - round_info["Ti"][role]
+                ).total_seconds()
                 round_info["N"][role] = len(self.ring[role])
                 round_info["central"][role] = self.central
                 round_info["zp_fict"][role] = self.zp_fict
-            round_info["delta_mag"] = round_info["stats"][Role.REF][2] - round_info["stats"][Role.TEST][2]
-            round_info["zero_point"] = round(self.zp_abs + round_info["delta_mag"], 2)
+            round_info["delta_mag"] = (
+                round_info["stats"][Role.REF][2] - round_info["stats"][Role.TEST][2]
+            )
+            round_info["zero_point"] = self.zp_abs + round_info["delta_mag"]
             round_info["zp_abs"] = self.zp_abs
-            pub.sendMessage("round_info", current=i, nrounds=self.nrounds, round_info=round_info, phot_info=self.phot_info)
-            if i !=  self.nrounds:
+            pub.sendMessage(
+                "round_info",
+                current=i,
+                nrounds=self.nrounds,
+                round_info=round_info,
+                phot_info=self.phot_info,
+            )
+            if i != self.nrounds:
                 await asyncio.sleep(10)
         self.is_calibrated = True
 

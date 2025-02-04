@@ -75,11 +75,12 @@ def onRound(
     zero_point = round_info["zero_point"]
     zp_abs = 20.44
     log.info(
-        "ROUND      %02d/%02d: New ZP = %0.2f = \u0394(ref-test) Mag (%0.2f) + ZP Abs (%0.2f)",
+        "%-10s %02d/%02d: New ZP = %0.2f = \u0394(ref-test) Mag (%0.2f) + ZP Abs (%0.2f)",
+        "ROUND",
         current,
         nrounds,
-        delta_mag,
         zero_point,
+        delta_mag,
         zp_abs,
     )
     for role in (Role.REF, Role.TEST):
@@ -88,7 +89,7 @@ def onRound(
         Ti = round_info["Ti"][role].strftime("%H:%M:%S")
         Tf = round_info["Tf"][role].strftime("%H:%M:%S")
         T = round_info["T"][role]
-        N = round_info["T"][role]
+        N = round_info["N"][role]
         central = round_info["central"][role]
         freq = round_info["stats"][role][0]
         stdev = round_info["stats"][role][1]
