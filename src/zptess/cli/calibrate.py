@@ -141,7 +141,7 @@ async def cli_calib_test(args: Namespace) -> None:
     }
     common_params = {
         "buffer": args.buffer,
-        "dry_run": args.dry_run,
+        "no_persist": args.no_persist,
         "update": args.update,
         "central": args.central,
         "period": args.period,
@@ -158,9 +158,10 @@ async def cli_calib_test(args: Namespace) -> None:
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
-    if args.query:
-        return
-    await controller.calibrate()
+    if args.dry_run:
+        log.info("Dry run. Will stop here ...")
+    else:
+        await controller.calibrate()
 
 
 # -----------------
@@ -173,10 +174,10 @@ def add_args(parser: ArgumentParser):
     p = subparser.add_parser(
         "test",
         parents=[
-            prs.info(),
+            prs.dry(),
             prs.stats(),
             prs.upd(),
-            prs.dry(),
+            prs.no_persist(),
             prs.buf(),
             prs.author(),
             prs.ref(),

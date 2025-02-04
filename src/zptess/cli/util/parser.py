@@ -64,22 +64,22 @@ def buf() -> ArgumentParser:
     )
     return parser
 
-def info() -> ArgumentParser:
+def dry() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
-        "-q",
-        "--query",
+        "-d",
+        "--dry-run",
         default=False,
         action="store_true",
         help="Query photometer info and exit (default %(default)s)",
     )
     return parser
 
-def dry() -> ArgumentParser:
+def no_persist() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
-        "-d",
-        "--dry-run",
+        "-n",
+        "--no-persist",
         default=False,
         action="store_true",
         help="Do not store anything in the database (default %(default)s)",

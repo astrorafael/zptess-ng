@@ -97,7 +97,7 @@ async def cli_read_ref(args: Namespace) -> None:
     pub.subscribe(onReading, "reading_info")
     await controller.init()
     await log_phot_info(controller, Role.REF)
-    if args.query:
+    if args.dry_run:
         return
     await controller.receive()
 
@@ -116,7 +116,7 @@ async def cli_read_test(args: Namespace) -> None:
     pub.subscribe(onReading, "reading_info")
     await controller.init()
     await log_phot_info(controller, Role.TEST)
-    if args.query:
+    if args.dry_run:
         return
     await controller.receive()
 
@@ -144,7 +144,7 @@ async def cli_read_both(args: Namespace) -> None:
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
-    if args.query:
+    if args.dry_run:
         return
     await controller.receive()
 
@@ -157,16 +157,16 @@ async def cli_read_both(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
     p = subparser.add_parser(
-        "ref", parents=[prs.info(), prs.ref()], help="Read reference photometer"
+        "ref", parents=[prs.dry(), prs.ref()], help="Read reference photometer"
     )
     p.set_defaults(func=cli_read_ref)
     p = subparser.add_parser(
-        "test", parents=[prs.info(),  prs.test()], help="Read test photometer"
+        "test", parents=[prs.dry(),  prs.test()], help="Read test photometer"
     )
     p.set_defaults(func=cli_read_test)
     p = subparser.add_parser(
         "both",
-        parents=[prs.info(), prs.ref(), prs.test()],
+        parents=[prs.dry(), prs.ref(), prs.test()],
         help="read both photometers",
     )
     p.set_defaults(func=cli_read_both)

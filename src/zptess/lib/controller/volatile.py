@@ -9,6 +9,7 @@
 # -------------------
 
 import math
+import datetime
 import logging
 import asyncio
 from collections import defaultdict
@@ -79,6 +80,7 @@ class Calibrator(Reader):
 
     async def init(self) -> None:
         await super().init()
+        self.meas_session = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
         async with self.Session() as session:
             val_db = await self._load(session, SECTION2[Role.TEST], "samples")
             val_arg = self.common_param["buffer"]
@@ -103,10 +105,34 @@ class Calibrator(Reader):
             self.author = val_arg if val_arg is not None else val_db
             # The absolute ZP is the stored ZP in the reference photometer.
             self.zp_abs = float(await self._load(session, "ref-device", "zp"))
-        self.dry_run = self.common_param["dry_run"]
+        self.no_persist = self.common_param["no_persist"]
         self.update = self.common_param["update"]
         self.ring[Role.REF] = RingBuffer(capacity=self.capacity, central=self.central)
         self.ring[Role.TEST] = RingBuffer(capacity=self.capacity, central=self.central)
+
+    async def update_zp(self, zero_point: float) -> None:
+        log = logging.getLogger(Role.TEST.tag())
+        try:
+            log.info("Updating ZP : %0.2f", zero_point)
+            await self.photometer[Role.TEST].save_zero_point(zero_point)
+            log.info("Updated  ZP : %0.2f", zero_point)
+            stored_zero_point = (await self.photometer[Role.TEST].get_info())["zp"]
+        except asyncio.exceptions.TimeoutError:
+            log.critical("Failed contacting %s photometer", Role.TEST.tag())
+            raise
+        except Exception as e:
+            log.critical(e)
+            raise
+        else:
+            if zero_point == stored_zero_point:
+                log.info("ZP Write verification Ok.")
+            else:
+                msg = (
+                    "ZP Write verification failed: ZP to Write (%0.2f) doesn't match ZP subsequently read (%0.2f)"
+                    % (zero_point, stored_zero_point)
+                )
+                log.critical(msg)
+                raise RuntimeError(msg)
 
     async def producer_task(self, role: Role) -> None:
         while not self.is_calibrated:
@@ -175,4 +201,10 @@ class Calibrator(Reader):
         self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
         self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
         self.is_calibrated = False
-        await asyncio.gather(self.statistics(), *self.producer)
+        try:
+            await asyncio.gather(self.statistics(), *self.producer)
+        except Exception as e:
+            log.critical(e)
+        else:
+            if self.update:
+                await self.update_zp(20.37)
