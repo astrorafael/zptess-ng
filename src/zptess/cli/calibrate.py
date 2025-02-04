@@ -46,6 +46,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # Auxiliar functions
 # ------------------
 
+
 async def log_phot_info(controller: Calibrator, role: Role) -> None:
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
@@ -66,8 +67,49 @@ def onReading(role: Role, reading: Mapping[str, Any]) -> None:
         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
         log.info(line)
 
-def onRound(current: int, nrounds: int) -> None:
-    log.info("ROUND %d/%d", current, nrounds)
+
+def onRound(
+    current: int, nrounds: int, round_info: Mapping[str, Any], phot_info: Mapping[Role, Any]
+) -> None:
+    delta_mag = round_info["delta_mag"]
+    zero_point = round_info["zero_point"]
+    zp_abs = 20.44
+    log.info(
+        "ROUND      %02d/%02d: New ZP = %0.2f = \u0394(ref-test) Mag (%0.2f) + ZP Abs (%0.2f)",
+        current,
+        nrounds,
+        delta_mag,
+        zero_point,
+        zp_abs,
+    )
+    for role in (Role.REF, Role.TEST):
+        tag = role.tag()
+        name = phot_info[role]["name"]
+        Ti = round_info["Ti"][role].strftime("%H:%M:%S")
+        Tf = round_info["Tf"][role].strftime("%H:%M:%S")
+        T = round_info["T"][role]
+        N = round_info["T"][role]
+        central = round_info["central"][role]
+        freq = round_info["stats"][role][0]
+        stdev = round_info["stats"][role][1]
+        mag = round_info["stats"][role][2]
+        zp = round_info["zp_fict"][role]
+        log.info(
+            "[%s] %-8s (%s-%s)[%.1fs][%03d] %6s f = %0.3f Hz, \u03c3 = %0.3f Hz, m = %0.2f @ %0.2f",
+            tag,
+            name,
+            Ti,
+            Tf,
+            T,
+            N,
+            central,
+            freq,
+            stdev,
+            mag,
+            zp,
+        )
+    log.info("=" * 72)
+
 
 # -----------------
 # Auxiliary classes
@@ -80,7 +122,6 @@ def onRound(current: int, nrounds: int) -> None:
 
 
 async def cli_calib_test(args: Namespace) -> None:
-    
     global controller
 
     ref_params = {
@@ -106,12 +147,10 @@ async def cli_calib_test(args: Namespace) -> None:
         "zp_fict": args.zp_fict,
         "zp_offset": args.zp_offset,
         "rounds": args.rounds,
-        "author": " ".join(args.author) if args.author else None
+        "author": " ".join(args.author) if args.author else None,
     }
     controller = Calibrator(
-        ref_params=ref_params,
-        test_params=test_params,
-        common_params = common_params
+        ref_params=ref_params, test_params=test_params, common_params=common_params
     )
     pub.subscribe(onReading, "reading_info")
     pub.subscribe(onRound, "round_info")
@@ -132,7 +171,16 @@ def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
     p = subparser.add_parser(
         "test",
-        parents=[prs.info(), prs.stats(), prs.upd(), prs.dry(), prs.buf(), prs.author(), prs.ref(), prs.test()],
+        parents=[
+            prs.info(),
+            prs.stats(),
+            prs.upd(),
+            prs.dry(),
+            prs.buf(),
+            prs.author(),
+            prs.ref(),
+            prs.test(),
+        ],
         help="Calibrate test photometer",
     )
     p.set_defaults(func=cli_calib_test)

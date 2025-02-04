@@ -8,10 +8,10 @@
 # System wide imports
 # -------------------
 
-import math
 import logging
 import statistics
 import collections
+from typing import Tuple, Dict, Sequence, Any
 
 # -------------------
 # Third party imports
@@ -27,6 +27,8 @@ from .. import CentralTendency
 # ----------------
 # Module constants
 # ----------------
+
+Message = Dict[str, Any]
 
 # -----------------------
 # Module global variables
@@ -55,22 +57,25 @@ class RingBuffer:
         elif central == CentralTendency.MODE:
             self._central_func = statistics.mode
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._buffer)
+    
+    def __getitem__(self, i: int) -> Message:
+        return self._buffer[i]
 
-    def capacity(self):
+    def capacity(self) -> int:
         return self._buffer.maxlen
         
-    def pop(self):
+    def pop(self) -> Message:
         return self._buffer.popleft()
 
-    def append(self, item):
+    def append(self, item: Message) -> None:
         self._buffer.append(item)
 
-    def frequencies(self):
+    def frequencies(self) -> Sequence[float]:
         return [item["freq"] for item in self._buffer]
 
-    def statistics(self):
+    def statistics(self) -> Tuple[float, float]:
         frequencies = tuple(item["freq"] for item in self._buffer)
         central = self._central_func(frequencies)
         stdev = statistics.stdev(frequencies, central)

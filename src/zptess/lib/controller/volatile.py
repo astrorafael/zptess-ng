@@ -11,8 +11,10 @@
 import math
 import logging
 import asyncio
+from collections import defaultdict
 
 from typing import Any, Mapping
+
 
 
 # ---------------------------
@@ -73,6 +75,7 @@ class Calibrator(Reader):
         self.nrounds = None
         self.zp_fict = None
         self.zp_offset = None
+        self.zp_abs = None
         self.author = None
 
     async def init(self) -> None:
@@ -99,6 +102,8 @@ class Calibrator(Reader):
             val_db = await self._load(session, "calibration", "author")
             val_arg = self.common_param["author"]
             self.author = val_arg if val_arg is not None else val_db
+            # The absolute ZP is the stored ZP in the reference photometer.
+            self.zp_abs =  float(await self._load(session, "ref-device", "zp"))
         self.dry_run = self.common_param["dry_run"]
         self.update = self.common_param["update"]
         self.ring[Role.REF] = RingBuffer(capacity=self.capacity, central=self.central)
@@ -134,9 +139,19 @@ class Calibrator(Reader):
 
     async def statistics(self):
         for i in range(1, self.nrounds + 1):
-            pub.sendMessage("round_info", current=i, nrounds=self.nrounds)
-            self.round_statistics(Role.REF)
-            self.round_statistics(Role.TEST)
+            round_info = defaultdict(dict)
+            for role in self.roles:
+                round_info["stats"][role] = self.round_statistics(role)
+                round_info["Ti"][role] = self.ring[role][0]['tstamp']
+                round_info["Tf"][role] = self.ring[role][-1]['tstamp']
+                round_info["T"][role] = (round_info["Tf"][role] - round_info["Ti"][role]).total_seconds()
+                round_info["N"][role] = len(self.ring[role])
+                round_info["central"][role] = self.central
+                round_info["zp_fict"][role] = self.zp_fict
+            round_info["delta_mag"] = round_info["stats"][Role.REF][2] - round_info["stats"][Role.TEST][2]
+            round_info["zero_point"] = round(self.zp_abs + round_info["delta_mag"], 2)
+            round_info["zp_abs"] = self.zp_abs
+            pub.sendMessage("round_info", current=i, nrounds=self.nrounds, round_info=round_info, phot_info=self.phot_info)
             if i !=  self.nrounds:
                 await asyncio.sleep(10)
         self.is_calibrated = True
