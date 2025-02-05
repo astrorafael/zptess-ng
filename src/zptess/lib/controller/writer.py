@@ -18,8 +18,6 @@ from typing import Any, Mapping, Dict
 # Third-party library imports
 # ----------------------------
 
-from pubsub import pub
-
 from sqlalchemy import select
 
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
@@ -122,46 +120,8 @@ class Writer:
             self.phot_info[role] = phot_info
             return phot_info
 
-    async def write_zp(self, zero_point: float) -> None:
-        stored_zero_point = None
-        try:
-            await self.photometer[Role.TEST].save_zero_point(zero_point)
-            stored_zero_point = (await self.photometer[Role.TEST].get_info())["zp"]
-        except asyncio.exceptions.TimeoutError:
-            pub.sendMessage(
-                "zp_writting_info",
-                role=Role.TEST,
-                zero_point=zero_point,
-                stored=stored_zero_point,
-                timeout=True,
-                result=False,
-            )
-        except Exception:
-            pub.sendMessage(
-                "zp_writting_info",
-                role=Role.TEST,
-                zero_point=zero_point,
-                stored=stored_zero_point,
-                timeout=False,
-                result=False,
-            )
-            raise
-        else:
-            if zero_point == stored_zero_point:
-                pub.sendMessage(
-                    "zp_writting_info",
-                    role=Role.TEST,
-                    zero_point=zero_point,
-                    stored=stored_zero_point,
-                    timeout=False,
-                    result=True,
-                )
-            else:
-                pub.sendMessage(
-                    "zp_writting_info",
-                    role=Role.TEST,
-                    zero_point=zero_point,
-                    stored=stored_zero_point,
-                    timeout=False,
-                    result=False,
-                )
+    async def write_zp(self, zero_point: float) -> float:
+        """May raise asyncio.exceptions.TimeoutError in particular"""
+        await self.photometer[Role.TEST].save_zero_point(zero_point)
+        stored_zero_point = (await self.photometer[Role.TEST].get_info())["zp"]
+        return stored_zero_point

@@ -9,6 +9,7 @@
 # -------------------
 
 import logging
+import asyncio
 from argparse import Namespace, ArgumentParser
 
 # -------------------
@@ -51,8 +52,10 @@ async def log_phot_info(role: Role) -> None:
     global controller
     log = logging.getLogger(role.tag())
     phot_info = await controller.info(role)
+    log.info("-"*40)
     for key, value in sorted(phot_info.items()):
         log.info("%-12s: %s", key.upper(), value)
+    log.info("-"*40)
 
 
 def onWritingZP(
@@ -87,6 +90,7 @@ def onWritingZP(
 
 async def cli_update_zp(args: Namespace) -> None:
     global controller
+    log = logging.getLogger(Role.TEST.tag())
     test_params = {
         "model": args.test_model,
         "sensor": args.test_sensor,
@@ -100,10 +104,25 @@ async def cli_update_zp(args: Namespace) -> None:
     await controller.init()
     pub.subscribe(onWritingZP, "zp_writting_info")
     await log_phot_info(Role.TEST)
+    name = controller.phot_info[Role.TEST]["name"]
     if args.dry_run:
         return
+    zero_point = args.zero_point
     log.info("Updating ZP : %0.2f", args.zero_point)
-    await controller.write_zp(args.zero_point)
+    try:
+        stored_zp = await controller.write_zp(zero_point)
+    except asyncio.exceptions.TimeoutError:
+        log.critical("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
+    except Exception as e:
+        log.exception(e)
+    else:
+        if zero_point != stored_zp:
+            log.critical(
+                "ZP Write verification failed: ZP to Write (%0.2f) doesn't match ZP subsequently read (%0.2f)",
+                zero_point, stored_zp
+            )
+        else:
+            log.info("[%s] ZP Write (%0.2f) verification Ok.", name, zero_point)
 
 
 # -----------------
@@ -113,7 +132,9 @@ async def cli_update_zp(args: Namespace) -> None:
 
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command")
-    p = subparser.add_parser("test", parents=[prs.dry(), prs.wrzp(), prs.test()], help="Read test photometer")
+    p = subparser.add_parser(
+        "test", parents=[prs.dry(), prs.wrzp(), prs.test()], help="Read test photometer"
+    )
     p.set_defaults(func=cli_update_zp)
 
 
