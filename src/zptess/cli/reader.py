@@ -20,7 +20,7 @@ from argparse import Namespace, ArgumentParser
 from pubsub import pub
 
 #from lica.cli import execute
-from lica.asincio.cli import execute
+from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
 
 # --------------
