@@ -79,4 +79,5 @@ line-length = 100
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.3.3",
+    "mypy>=1.15.0",
 ]
