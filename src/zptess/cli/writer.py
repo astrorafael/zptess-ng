@@ -26,8 +26,9 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .. import __version__
-from .util import parser as prs
 from ..lib.controller import Writer
+from .util.logging import log_phot_info
+from .util import parser as prs
 
 # ----------------
 # Module constants
@@ -46,16 +47,6 @@ controller = None
 # ------------------
 # Auxiliar functions
 # ------------------
-
-
-async def log_phot_info(role: Role) -> None:
-    global controller
-    log = logging.getLogger(role.tag())
-    phot_info = await controller.info(role)
-    log.info("-"*40)
-    for key, value in sorted(phot_info.items()):
-        log.info("%-12s: %s", key.upper(), value)
-    log.info("-"*40)
 
 
 def onWritingZP(
@@ -103,7 +94,7 @@ async def cli_update_zp(args: Namespace) -> None:
     )
     await controller.init()
     pub.subscribe(onWritingZP, "zp_writting_info")
-    await log_phot_info(Role.TEST)
+    await log_phot_info(controller, Role.TEST)
     name = controller.phot_info[Role.TEST]["name"]
     if args.dry_run:
         return
