@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
-from lica.cli import async_execute
+from lica.asyncio.cli import execute
 
 
 
@@ -180,7 +180,7 @@ async def cli_main(args: Namespace) -> None:
 
 def main():
     """The main entry point specified by pyproject.toml"""
-    async_execute(
+    execute(
         main_func=cli_main,
         add_args_func=add_args,
         name=__name__,

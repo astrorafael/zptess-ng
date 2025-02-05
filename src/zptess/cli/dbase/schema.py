@@ -15,7 +15,7 @@ from argparse import ArgumentParser, Namespace
 # SQLAlchemy imports
 # -------------------
 
-from lica.cli import async_execute
+from lica.asyncio.cli import execute
 from lica.sqlalchemy.asyncio.dbase import url, engine, Model
 
 # --------------
@@ -68,7 +68,7 @@ def add_args(parser: ArgumentParser) -> None:
 
 def main():
     """The main entry point specified by pyproject.toml"""
-    async_execute(
+    execute(
         main_func=cli_main,
         add_args_func=add_args,
         name=__name__,
