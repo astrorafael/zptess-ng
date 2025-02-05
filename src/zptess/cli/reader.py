@@ -9,6 +9,7 @@
 # -------------------
 
 import logging
+import asyncio
 from typing import Mapping, Any
 from argparse import Namespace, ArgumentParser
 
@@ -57,22 +58,11 @@ async def log_phot_info(role: Role) -> None:
 
 
 def onReading(role: Role, reading: Mapping[str, Any]) -> None:
+    global controller
     log = logging.getLogger(role.tag())
     name = controller.phot_info[role]["name"]
     line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']}"
     log.info(line)
-
-
-# def onReading2(controller: Reader, role: Role, reading: Mapping[str, Any]) -> None:
-#     log = logging.getLogger(role.tag())
-#     current = len(controller.buffer(role))
-#     total = controller.buffer(role).capacity()
-#     name = controller.phot_info[role]["name"]
-#     if current < total:
-#         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
-#     else:
-#         line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
-#         log.info(line)
 
 
 # -----------------
@@ -83,6 +73,15 @@ def onReading(role: Role, reading: Mapping[str, Any]) -> None:
 # -------------------
 # Auxiliary functions
 # -------------------
+
+
+async def log_messages(role: Role, num: int | None = None) -> None:
+    global controller
+    log = logging.getLogger(role.tag())
+    name = controller.phot_info[role]["name"]
+    async for role, msg in controller.receive(role, num):
+        line = f"{name:9s} [{msg.get('seq')}] f={msg['freq']} Hz, tbox={msg['tamb']}, tsky={msg['tsky']}"
+        log.info(line)
 
 
 async def cli_read_ref(args: Namespace) -> None:
@@ -102,7 +101,7 @@ async def cli_read_ref(args: Namespace) -> None:
     await log_phot_info(Role.REF)
     if args.dry_run:
         return
-    await controller.receive()
+    await log_messages(Role.REF, args.num_messages)
 
 
 async def cli_read_test(args: Namespace) -> None:
@@ -122,7 +121,7 @@ async def cli_read_test(args: Namespace) -> None:
     await log_phot_info(Role.TEST)
     if args.dry_run:
         return
-    await controller.receive()
+    await log_messages(Role.TEST, args.num_messages)
 
 
 async def cli_read_both(args: Namespace) -> None:
@@ -151,7 +150,9 @@ async def cli_read_both(args: Namespace) -> None:
     await log_phot_info(Role.TEST)
     if args.dry_run:
         return
-    await controller.receive()
+    await asyncio.gather(
+        log_messages(Role.REF, args.num_messages), log_messages(Role.TEST, args.num_messages)
+    )
 
 
 # -----------------

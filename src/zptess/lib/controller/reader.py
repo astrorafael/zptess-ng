@@ -11,20 +11,18 @@
 import logging
 import asyncio
 
-from typing import Any, Mapping, Dict
+from typing import Any, Mapping, Dict, Tuple, AsyncIterator
 
 
 # ---------------------------
 # Third-party library imports
 # ----------------------------
 
-from pubsub import pub
-
 from sqlalchemy import select
 
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 from lica.asyncio.photometer.builder import PhotometerBuilder
-from lica.asyncio.photometer import Model as PhotModel, Sensor, Role
+from lica.asyncio.photometer import Model as PhotModel, Sensor, Role, Message as PhotMessage
 
 # --------------
 # local imports
@@ -38,7 +36,7 @@ from ...lib.dbase.model import Config
 # ----------------
 
 
-SECTION1 = {Role.REF: "ref-device", Role.TEST: "test-device"}
+SECTION = {Role.REF: "ref-device", Role.TEST: "test-device"}
 
 # -----------------------
 # Module global variables
@@ -95,19 +93,19 @@ class Reader:
         builder = PhotometerBuilder(engine)  # For the reference photometer using database info
         async with self.Session() as session:
             for role in self.roles:
-                val_db = await self._load(session, SECTION1[role], "model")
+                val_db = await self._load(session, SECTION[role], "model")
                 val_arg = self.param[role]["model"]
                 self.param[role]["model"] = val_arg if val_arg is not None else PhotModel(val_db)
-                val_db = await self._load(session, SECTION1[role], "sensor")
+                val_db = await self._load(session, SECTION[role], "sensor")
                 val_arg = self.param[role]["sensor"]
                 self.param[role]["sensor"] = val_arg if val_arg is not None else Sensor(val_db)
-                val_db = await self._load(session, SECTION1[role], "old-proto")
+                val_db = await self._load(session, SECTION[role], "old-proto")
                 val_arg = self.param[role]["old_proto"]
                 self.param[role]["old_proto"] = val_arg if val_arg is not None else bool(val_db)
-                val_db = await self._load(session, SECTION1[role], "endpoint")
+                val_db = await self._load(session, SECTION[role], "endpoint")
                 val_arg = self.param[role]["endpoint"]
                 self.param[role]["endpoint"] = val_arg if val_arg is not None else val_db
-                self.photometer[role] = builder.build(self.param[role]["model"], role)
+                self.photometer[role] = builder.build(self.param[role]["model"], role, self.param[role]["endpoint"])
                 self.ring[role] = RingBuffer(capacity=1)
                 self.task[role] = asyncio.create_task(self.photometer[role].readings())
                 logging.getLogger(str(role)).setLevel(self.param[role]["log_level"])
@@ -130,12 +128,13 @@ class Reader:
             self.phot_info[role] = phot_info
             return phot_info
 
-    async def fill_buffer(self, role: Role) -> None:
-        while True:
-            msg = await self.photometer[role].queue.get()
-            self.ring[role].append(msg)
-            pub.sendMessage("reading_info", controller=self, role=role, reading=msg)
-
-    async def receive(self) -> None:
-        coros = [self.fill_buffer(role) for role in self.roles]
-        await asyncio.gather(*coros)
+    async def receive(self, role: Role, num_messages: int | None = None) -> AsyncIterator[Tuple[Role,PhotMessage]]:
+        """An asynchronous generator, to be used by clients with async for"""
+        if num_messages is None:
+            while True:
+                msg = await self.photometer[role].queue.get()
+                yield role, msg
+        else:
+            for i in range(num_messages):
+                msg = await self.photometer[role].queue.get()
+                yield role, msg
