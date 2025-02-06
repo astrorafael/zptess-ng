@@ -9,7 +9,6 @@
 # -------------------
 
 import logging
-from typing import Mapping
 from argparse import Namespace, ArgumentParser
 
 # -------------------
@@ -28,14 +27,14 @@ from lica.asyncio.photometer import Role, Message
 from .. import __version__
 from .util import parser as prs
 from .util.logging import log_phot_info
-from ..lib.controller import Calibrator, FreqStatistics, Event
+from ..lib.controller import Calibrator, Event, RoundStatsType
 
 
 # ----------------
 # Module constants
 # ----------------
 
-RoundStatsType = Mapping[Role, FreqStatistics]
+
 
 DESCRIPTION = "TESS-W Reader tool"
 
