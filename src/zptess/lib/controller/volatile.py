@@ -31,7 +31,7 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .ring import RingBuffer
-from .reader import Reader
+from .reader import Controller as Reader
 
 from .. import CentralTendency
 
@@ -57,7 +57,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -----------------
 
 
-class Calibrator(Reader):
+class Controller(Reader):
     """
     Reader Controller specialized in reading the photometers
     """

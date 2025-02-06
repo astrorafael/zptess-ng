@@ -9,6 +9,7 @@
 # -------------------
 
 import logging
+import contextlib
 
 # -------------------
 # Third party imports
@@ -35,12 +36,16 @@ async def log_phot_info(controller: Controller, role: Role) -> None:
 async def log_messages(controller: Controller, role: Role, num: int | None = None) -> None:
     log = logging.getLogger(role.tag())
     name = controller.phot_info[role]["name"]
-    async for role, msg in controller.receive(role, num):
-        log.info(
-            "%-9s [%d] f=%s Hz, tbox=%s, tsky=%s",
-            name,
-            msg.get("seq"),
-            msg["freq"],
-            msg["tamb"],
-            msg["tsky"],
-        )
+    # Although in this case, it doesn't matter, in general
+    # async generatores may not close as expected,
+    # hence the use of closing() context manager
+    async with contextlib.aclosing(controller.receive(role, num)) as gen:
+        async for role, msg in gen:
+            log.info(
+                "%-9s [%d] f=%s Hz, tbox=%s, tsky=%s",
+                name,
+                msg.get("seq"),
+                msg["freq"],
+                msg["tamb"],
+                msg["tsky"],
+            )

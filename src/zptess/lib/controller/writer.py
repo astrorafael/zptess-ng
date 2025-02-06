@@ -51,7 +51,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -----------------
 
 
-class Writer(BaseController):
+class Controller(BaseController):
     """
     Writer Controller specialized in writing Zero Points via API
     """
@@ -61,14 +61,11 @@ class Writer(BaseController):
         ref_params: Mapping[str, Any] | None = None,
         test_params: Mapping[str, Any] | None = None,
     ):
+        super().__init__(ref_params, test_params)
         self.Session = AsyncSession
-        self.param = {Role.TEST: test_params}
         self.photometer = dict()
         self.ring = dict()
         self.phot_info = dict()
-        self.roles = list()
-        if test_params is not None:
-            self.roles.append(Role.TEST)
 
     async def calibrate(self) -> float:
         """Calibrate the test photometer against the refrence photometer retirnoing a Zero Point"""

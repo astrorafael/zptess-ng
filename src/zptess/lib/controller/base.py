@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 import logging
 import asyncio
 
-from typing import  Dict, Tuple, AsyncIterator
+from typing import Mapping, Any,  Dict, Tuple, AsyncIterator
 
 
 # ---------------------------
@@ -20,6 +20,8 @@ from typing import  Dict, Tuple, AsyncIterator
 # ----------------------------
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
+
 from lica.asyncio.photometer import  Role, Message as PhotMessage
 
 # --------------
@@ -56,10 +58,22 @@ class Controller(ABC):
     Reader Controller specialized in reading the photometers
     """
 
+    def __init__(
+        self,
+        ref_params: Mapping[str, Any] | None = None,
+        test_params: Mapping[str, Any] | None = None,
+    ):
+        self.param = {Role.REF: ref_params, Role.TEST: test_params}
+        self.roles = list()
+        if ref_params is not None:
+            self.roles.append(Role.REF)
+        if test_params is not None:
+            self.roles.append(Role.TEST)
+
     def buffer(self, role: Role):
         return self.ring[role]
 
-    async def _load(self, session, section: str, prop: str) -> str | None:
+    async def _load(self, session: AsyncSessionClass, section: str, prop: str) -> str | None:
         async with session:
             q = select(Config.value).where(Config.section == section, Config.prop == prop)
             return (await session.scalars(q)).one_or_none()
