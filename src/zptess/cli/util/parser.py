@@ -77,14 +77,14 @@ def dry() -> ArgumentParser:
     return parser
 
 
-def no_persist() -> ArgumentParser:
+def persist() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
-        "-n",
-        "--no-persist",
+        "-p",
+        "--persist",
         default=False,
         action="store_true",
-        help="Do not store anything in the database (default %(default)s)",
+        help="Store calibration results in database (default %(default)s)",
     )
     return parser
 

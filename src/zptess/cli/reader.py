@@ -10,7 +10,6 @@
 
 import logging
 import asyncio
-from typing import Mapping, Any
 from argparse import Namespace, ArgumentParser
 
 # -------------------

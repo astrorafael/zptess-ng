@@ -12,9 +12,8 @@ import math
 import datetime
 import logging
 import asyncio
-from collections import defaultdict
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 # ---------------------------
@@ -30,14 +29,17 @@ from lica.asyncio.photometer import Role
 # local imports
 # -------------
 
+from .types import Event, FreqStatistics
 from .ring import RingBuffer
 from .reader import Controller as Reader
+
 
 from .. import CentralTendency
 
 # ----------------
 # Module constants
 # ----------------
+
 
 SECTION2 = {Role.REF: "ref-stats", Role.TEST: "test-stats"}
 
@@ -105,34 +107,10 @@ class Controller(Reader):
             self.author = val_arg if val_arg is not None else val_db
             # The absolute ZP is the stored ZP in the reference photometer.
             self.zp_abs = float(await self._load(session, "ref-device", "zp"))
-        self.no_persist = self.common_param["no_persist"]
+        self.persist = self.common_param["persist"]
         self.update = self.common_param["update"]
         self.ring[Role.REF] = RingBuffer(capacity=self.capacity, central=self.central)
         self.ring[Role.TEST] = RingBuffer(capacity=self.capacity, central=self.central)
-
-    async def update_zp(self, zero_point: float) -> None:
-        log = logging.getLogger(Role.TEST.tag())
-        try:
-            log.info("Updating ZP : %0.2f", zero_point)
-            await self.photometer[Role.TEST].save_zero_point(zero_point)
-            log.info("Updated  ZP : %0.2f", zero_point)
-            stored_zero_point = (await self.photometer[Role.TEST].get_info())["zp"]
-        except asyncio.exceptions.TimeoutError:
-            log.critical("Failed contacting %s photometer", Role.TEST.tag())
-            raise
-        except Exception as e:
-            log.critical(e)
-            raise
-        else:
-            if zero_point == stored_zero_point:
-                log.info("ZP Write verification Ok.")
-            else:
-                msg = (
-                    "ZP Write verification failed: ZP to Write (%0.2f) doesn't match ZP subsequently read (%0.2f)"
-                    % (zero_point, stored_zero_point)
-                )
-                log.critical(msg)
-                raise RuntimeError(msg)
 
     async def producer_task(self, role: Role) -> None:
         while not self.is_calibrated:
@@ -143,12 +121,12 @@ class Controller(Reader):
         while len(self.ring[role]) < self.capacity:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
-            pub.sendMessage("reading_info", role=role, reading=msg)
+            pub.sendMessage(Event.READING, role=role, reading=msg)
 
     def magnitude(self, role: Role, freq: float, freq_offset):
         return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
 
-    def round_statistics(self, role: Role):
+    def round_statistics(self, role: Role) -> FreqStatistics:
         log = logging.getLogger(role.tag())
         freq_offset = self.phot_info[role]["freq_offset"]
         freq = stdev = mag = None
@@ -162,34 +140,26 @@ class Controller(Reader):
         finally:
             return freq, stdev, mag
 
-    async def statistics(self):
-        for i in range(1, self.nrounds + 1):
-            round_info = defaultdict(dict)
+    async def statistics(self) -> Sequence[float]:
+        zero_point = list()
+        for i in range(0, self.nrounds):
+            stats = dict()
             for role in self.roles:
-                round_info["stats"][role] = self.round_statistics(role)
-                round_info["Ti"][role] = self.ring[role][0]["tstamp"]
-                round_info["Tf"][role] = self.ring[role][-1]["tstamp"]
-                round_info["T"][role] = (
-                    round_info["Tf"][role] - round_info["Ti"][role]
-                ).total_seconds()
-                round_info["N"][role] = len(self.ring[role])
-                round_info["central"][role] = self.central
-                round_info["zp_fict"][role] = self.zp_fict
-            round_info["delta_mag"] = (
-                round_info["stats"][Role.REF][2] - round_info["stats"][Role.TEST][2]
-            )
-            round_info["zero_point"] = self.zp_abs + round_info["delta_mag"]
-            round_info["zp_abs"] = self.zp_abs
+                stats[role] = self.round_statistics(role)
+            delta_mag = stats[Role.REF][2] - stats[Role.TEST][2]
+            zero_point.append(self.zp_abs + delta_mag)
             pub.sendMessage(
-                "round_info",
-                current=i,
-                nrounds=self.nrounds,
-                round_info=round_info,
-                phot_info=self.phot_info,
+                Event.ROUND,
+                current=i+1,
+                delta_mag=delta_mag,
+                zero_point=zero_point[i],
+                stats=stats,
             )
-            if i != self.nrounds:
-                await asyncio.sleep(10)
+            if i != self.nrounds-1:
+                await asyncio.sleep(self.period)
         self.is_calibrated = True
+        return zero_point
+
 
     async def calibrate(self) -> None:
         coros = [self.fill_buffer(role) for role in self.roles]
@@ -201,10 +171,7 @@ class Controller(Reader):
         self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
         self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
         self.is_calibrated = False
-        try:
-            await asyncio.gather(self.statistics(), *self.producer)
-        except Exception as e:
-            log.critical(e)
-        else:
-            if self.update:
-                await self.update_zp(20.37)
+        zero_points, _, _ = await asyncio.gather(self.statistics(), *self.producer)
+        log.info(zero_points)
+        if self.update:
+            await self.update_zp(20.37)

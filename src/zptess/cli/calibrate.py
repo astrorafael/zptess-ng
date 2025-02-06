@@ -9,7 +9,7 @@
 # -------------------
 
 import logging
-from typing import Mapping, Any
+from typing import Mapping
 from argparse import Namespace, ArgumentParser
 
 # -------------------
@@ -19,7 +19,7 @@ from argparse import Namespace, ArgumentParser
 from pubsub import pub
 
 from lica.asyncio.cli import execute
-from lica.asyncio.photometer import Role
+from lica.asyncio.photometer import Role, Message
 
 # --------------
 # local imports
@@ -27,11 +27,15 @@ from lica.asyncio.photometer import Role
 
 from .. import __version__
 from .util import parser as prs
-from ..lib.controller import Calibrator
+from .util.logging import log_phot_info
+from ..lib.controller import Calibrator, FreqStatistics, Event
+
 
 # ----------------
 # Module constants
 # ----------------
+
+RoundStatsType = Mapping[Role, FreqStatistics]
 
 DESCRIPTION = "TESS-W Reader tool"
 
@@ -47,14 +51,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # ------------------
 
 
-async def log_phot_info(controller: Calibrator, role: Role) -> None:
-    log = logging.getLogger(role.tag())
-    phot_info = await controller.info(role)
-    for key, value in sorted(phot_info.items()):
-        log.info("%-12s: %s", key.upper(), value)
-
-
-def onReading(role: Role, reading: Mapping[str, Any]) -> None:
+def onReading(role: Role, reading: Message) -> None:
     global controller
     log = logging.getLogger(role.tag())
     current = len(controller.buffer(role))
@@ -62,18 +59,16 @@ def onReading(role: Role, reading: Mapping[str, Any]) -> None:
     name = controller.phot_info[role]["name"]
     if current < total:
         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
-    else:
-        return
-        line = f"{name:9s} [{reading.get('seq')}] f={reading['freq']} Hz, tbox={reading['tamb']}, tsky={reading['tsky']} {reading['tstamp'].strftime('%Y-%m-%d %H:%M:%S')}"
-        log.info(line)
 
 
-def onRound(
-    current: int, nrounds: int, round_info: Mapping[str, Any], phot_info: Mapping[Role, Any]
-) -> None:
-    delta_mag = round_info["delta_mag"]
-    zero_point = round_info["zero_point"]
-    zp_abs = 20.44
+def onRound(current: int, delta_mag: float, zero_point: float, stats: RoundStatsType) -> None:
+    global controller
+    zp_abs = controller.zp_abs
+    nrounds = controller.nrounds
+    phot_info = controller.phot_info
+    central = controller.central
+    zp_fict = controller.zp_fict
+    log.info("=" * 72)
     log.info(
         "%-10s %02d/%02d: New ZP = %0.2f = \u0394(ref-test) Mag (%0.2f) + ZP Abs (%0.2f)",
         "ROUND",
@@ -86,15 +81,13 @@ def onRound(
     for role in (Role.REF, Role.TEST):
         tag = role.tag()
         name = phot_info[role]["name"]
-        Ti = round_info["Ti"][role].strftime("%H:%M:%S")
-        Tf = round_info["Tf"][role].strftime("%H:%M:%S")
-        T = round_info["T"][role]
-        N = round_info["N"][role]
-        central = round_info["central"][role]
-        freq = round_info["stats"][role][0]
-        stdev = round_info["stats"][role][1]
-        mag = round_info["stats"][role][2]
-        zp = round_info["zp_fict"][role]
+        Ti = controller.ring[role][0]["tstamp"]
+        Tf = controller.ring[role][-1]["tstamp"]
+        T = (Tf-Ti).total_seconds()
+        Ti = Ti.strftime("%H:%M:%S")
+        Tf = Tf.strftime("%H:%M:%S")
+        N = len(controller.ring[role])
+        freq, stdev, mag = stats[role]
         log.info(
             "[%s] %-8s (%s-%s)[%.1fs][%03d] %6s f = %0.3f Hz, \u03c3 = %0.3f Hz, m = %0.2f @ %0.2f",
             tag,
@@ -107,9 +100,11 @@ def onRound(
             freq,
             stdev,
             mag,
-            zp,
+            zp_fict,
         )
-    log.info("=" * 72)
+    if current == nrounds:
+        log.info("=" * 72)
+   
 
 
 # -----------------
@@ -141,7 +136,7 @@ async def cli_calib_test(args: Namespace) -> None:
     }
     common_params = {
         "buffer": args.buffer,
-        "no_persist": args.no_persist,
+        "persist": args.persist,
         "update": args.update,
         "central": args.central,
         "period": args.period,
@@ -153,8 +148,8 @@ async def cli_calib_test(args: Namespace) -> None:
     controller = Calibrator(
         ref_params=ref_params, test_params=test_params, common_params=common_params
     )
-    pub.subscribe(onReading, "reading_info")
-    pub.subscribe(onRound, "round_info")
+    pub.subscribe(onReading, Event.READING)
+    pub.subscribe(onRound, Event.ROUND)
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
@@ -177,7 +172,7 @@ def add_args(parser: ArgumentParser):
             prs.dry(),
             prs.stats(),
             prs.upd(),
-            prs.no_persist(),
+            prs.persist(),
             prs.buf(),
             prs.author(),
             prs.ref(),
