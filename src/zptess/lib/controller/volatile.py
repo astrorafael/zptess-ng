@@ -181,5 +181,4 @@ class Controller(Reader):
         log.info(zero_points)
         log.info(ref_freqs)
         log.info(test_freqs)
-        if self.update:
-            await self.update_zp(20.37)
+        
