@@ -29,7 +29,7 @@ from lica.asyncio.photometer import Role
 # local imports
 # -------------
 
-from .types import Event, FreqStatistics
+from .types import Event, RoundStatistics, SummaryStatistics
 from .ring import RingBuffer
 from .reader import Controller as Reader
 
@@ -126,7 +126,7 @@ class Controller(Reader):
     def magnitude(self, role: Role, freq: float, freq_offset):
         return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
 
-    def round_statistics(self, role: Role) -> FreqStatistics:
+    def round_statistics(self, role: Role) -> RoundStatistics:
         log = logging.getLogger(role.tag())
         freq_offset = self.phot_info[role]["freq_offset"]
         freq = stdev = mag = None
@@ -140,26 +140,30 @@ class Controller(Reader):
         finally:
             return freq, stdev, mag
 
-    async def statistics(self) -> Sequence[float]:
-        zero_point = list()
+    async def statistics(self) -> SummaryStatistics:
+        zero_points = list()
+        stats = list()
         for i in range(0, self.nrounds):
-            stats = dict()
+            stats_per_round = dict()
             for role in self.roles:
-                stats[role] = self.round_statistics(role)
-            delta_mag = stats[Role.REF][2] - stats[Role.TEST][2]
-            zero_point.append(self.zp_abs + delta_mag)
+                stats_per_round[role] = self.round_statistics(role)
+            delta_mag = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
+            zero_points.append(self.zp_abs + delta_mag)
+            stats.append(stats_per_round)
             pub.sendMessage(
                 Event.ROUND,
-                current=i+1,
+                current=i + 1,
                 delta_mag=delta_mag,
-                zero_point=zero_point[i],
-                stats=stats,
+                zero_point=zero_points[i],
+                stats=stats_per_round,
             )
-            if i != self.nrounds-1:
+            if i != self.nrounds - 1:
                 await asyncio.sleep(self.period)
-        self.is_calibrated = True
-        return zero_point
-
+        zero_points = [round(zp, 2) for zp in zero_points]
+        ref_freqs = [stats_pr[Role.REF][0] for stats_pr in stats]
+        test_freqs = [stats_pr[Role.TEST][0] for stats_pr in stats]
+        self.is_calibrated = True # So no more buffer filling
+        return zero_points, ref_freqs, test_freqs
 
     async def calibrate(self) -> None:
         coros = [self.fill_buffer(role) for role in self.roles]
@@ -171,7 +175,11 @@ class Controller(Reader):
         self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
         self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
         self.is_calibrated = False
-        zero_points, _, _ = await asyncio.gather(self.statistics(), *self.producer)
+        (zero_points, ref_freqs, test_freqs), _, _ = await asyncio.gather(
+            self.statistics(), *self.producer
+        )
         log.info(zero_points)
+        log.info(ref_freqs)
+        log.info(test_freqs)
         if self.update:
             await self.update_zp(20.37)
