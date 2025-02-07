@@ -23,7 +23,7 @@ from lica.asyncio.photometer import Model as PhotModel, Sensor
 # local imports
 # -------------
 
-from .misc import mkendpoint
+from .validator import vendpoint
 from ...lib import CentralTendency
 
 
@@ -143,7 +143,7 @@ def ref() -> ArgumentParser:
     parser.add_argument(
         "-rE",
         "--ref-endpoint",
-        type=mkendpoint,
+        type=vendpoint,
         default=None,
         metavar="<ref endpoint>",
         help="Reference photometer endpoint",
@@ -187,7 +187,7 @@ def test() -> ArgumentParser:
     parser.add_argument(
         "-tE",
         "--test-endpoint",
-        type=mkendpoint,
+        type=vendpoint,
         default=None,
         metavar="<test endpoint>",
         help="Test photometer endpoint",

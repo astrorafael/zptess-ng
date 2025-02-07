@@ -9,6 +9,7 @@
 # -------------------
 
 import logging
+import asyncio
 import contextlib
 
 # -------------------
@@ -21,7 +22,7 @@ from lica.asyncio.photometer import Role
 # local imports
 # -------------
 
-from ...lib.controller import Controller
+from ...lib.photometer import Controller
 
 
 async def log_phot_info(controller: Controller, role: Role) -> None:
@@ -49,3 +50,23 @@ async def log_messages(controller: Controller, role: Role, num: int | None = Non
                 msg["tamb"],
                 msg["tsky"],
             )
+
+async def update_zp(controller: Controller, zero_point: float) -> None:
+    log = logging.getLogger(Role.TEST.tag())
+    log.info("Updating ZP : %0.3f", zero_point)
+    name = controller.phot_info[Role.TEST]["name"]
+    try:
+        stored_zp = await controller.write_zp(zero_point)
+    except asyncio.exceptions.TimeoutError:
+        log.critical("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
+    except Exception as e:
+        log.exception(e)
+    else:
+        if zero_point != stored_zp:
+            log.critical(
+                "ZP Write verification failed: ZP to Write (%0.3f) doesn't match ZP subsequently read (%0.3f)",
+                zero_point, stored_zp
+            )
+        else:
+            log.info("[%s] ZP Write (%0.3f) verification Ok.", name, zero_point)
+

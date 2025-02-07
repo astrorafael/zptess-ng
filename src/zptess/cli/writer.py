@@ -9,14 +9,11 @@
 # -------------------
 
 import logging
-import asyncio
 from argparse import Namespace, ArgumentParser
 
 # -------------------
 # Third party imports
 # -------------------
-
-from pubsub import pub
 
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
@@ -26,8 +23,8 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .. import __version__
-from ..lib.controller import Writer
-from .util.logging import log_phot_info
+from ..lib.photometer import Writer
+from .util.logging import log_phot_info, update_zp
 from .util import parser as prs
 
 # ----------------
@@ -44,31 +41,6 @@ DESCRIPTION = "TESS-W Zero Point update tool"
 log = logging.getLogger(__name__.split(".")[-1])
 controller = None
 
-# ------------------
-# Auxiliar functions
-# ------------------
-
-
-def onWritingZP(
-    role: Role, zero_point: float, stored: float | None, timeout: bool, result: bool
-) -> None:
-    global controller
-    log = logging.getLogger(role.tag())
-    name = controller.phot_info[role]["name"]
-    if result:
-        log.info("[%s] ZP Write (%0.2f) verification Ok.", name, zero_point)
-    elif timeout:
-        log.critical("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
-    elif stored is None:
-        log.critical("[%s] Operation failed for %s photometer", name, Role.TEST.tag())
-    else:
-        msg = (
-            "ZP Write verification failed: ZP to Write (%0.2f) doesn't match ZP subsequently read (%0.2f)"
-            % (zero_point, stored)
-        )
-        log.critical(msg)
-
-
 # -----------------
 # Auxiliary classes
 # -----------------
@@ -81,7 +53,7 @@ def onWritingZP(
 
 async def cli_update_zp(args: Namespace) -> None:
     global controller
-    log = logging.getLogger(Role.TEST.tag())
+
     test_params = {
         "model": args.test_model,
         "sensor": args.test_sensor,
@@ -93,27 +65,10 @@ async def cli_update_zp(args: Namespace) -> None:
         test_params=test_params,
     )
     await controller.init()
-    pub.subscribe(onWritingZP, "zp_writting_info")
     await log_phot_info(controller, Role.TEST)
-    name = controller.phot_info[Role.TEST]["name"]
     if args.dry_run:
         return
-    zero_point = args.zero_point
-    log.info("Updating ZP : %0.2f", args.zero_point)
-    try:
-        stored_zp = await controller.write_zp(zero_point)
-    except asyncio.exceptions.TimeoutError:
-        log.critical("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
-    except Exception as e:
-        log.exception(e)
-    else:
-        if zero_point != stored_zp:
-            log.critical(
-                "ZP Write verification failed: ZP to Write (%0.2f) doesn't match ZP subsequently read (%0.2f)",
-                zero_point, stored_zp
-            )
-        else:
-            log.info("[%s] ZP Write (%0.2f) verification Ok.", name, zero_point)
+    await update_zp(controller, args.zero_point)
 
 
 # -----------------

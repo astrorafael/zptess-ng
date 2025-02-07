@@ -10,6 +10,7 @@
 
 import logging
 from argparse import Namespace, ArgumentParser
+from typing import Sequence
 
 # -------------------
 # Third party imports
@@ -26,14 +27,13 @@ from lica.asyncio.photometer import Role, Message
 
 from .. import __version__
 from .util import parser as prs
-from .util.logging import log_phot_info
-from ..lib.controller import Calibrator, Event, RoundStatsType
+from .util.logging import log_phot_info, update_zp
+from ..lib.photometer import Calibrator, Event, RoundStatsType
 
 
 # ----------------
 # Module constants
 # ----------------
-
 
 
 DESCRIPTION = "TESS-W Reader tool"
@@ -82,7 +82,7 @@ def onRound(current: int, delta_mag: float, zero_point: float, stats: RoundStats
         name = phot_info[role]["name"]
         Ti = controller.ring[role][0]["tstamp"]
         Tf = controller.ring[role][-1]["tstamp"]
-        T = (Tf-Ti).total_seconds()
+        T = (Tf - Ti).total_seconds()
         Ti = Ti.strftime("%H:%M:%S")
         Tf = Tf.strftime("%H:%M:%S")
         N = len(controller.ring[role])
@@ -103,7 +103,37 @@ def onRound(current: int, delta_mag: float, zero_point: float, stats: RoundStats
         )
     if current == nrounds:
         log.info("=" * 72)
-   
+
+
+def onSummary(
+    zero_point_seq: Sequence[float],
+    ref_freq_seq: Sequence[float],
+    test_freq_seq: Sequence[float],
+    best_ref_freq: float,
+    best_test_freq: float,
+    best_zero_point: float,
+    final_zero_point: float,
+) -> None:
+    global controller
+    log.info("#" * 72)
+    log.info("Session = %s", controller.meas_session.strftime("%Y-%m-%dT%H:%M:%S"))
+    log.info("Best ZP        list is %s", zero_point_seq)
+    log.info("Best REF. Freq list is %s", ref_freq_seq)
+    log.info("Best TEST Freq list is %s", test_freq_seq)
+    log.info("REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_ref_freq, 0, 0)
+    log.info("TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_test_freq, 0, 0)
+    log.info(
+        "Final TEST ZP (%0.2f) = Best ZP (%0.2f) + ZP offset (%0.2f)",
+        final_zero_point,
+        best_zero_point,
+        controller.zp_offset,
+    )
+    log.info(
+        "Old TEST ZP = %0.2f, NEW TEST ZP = %0.2f",
+        controller.phot_info[Role.TEST]["zp"],
+        final_zero_point,
+    )
+    log.info("#" * 72)
 
 
 # -----------------
@@ -149,13 +179,15 @@ async def cli_calib_test(args: Namespace) -> None:
     )
     pub.subscribe(onReading, Event.READING)
     pub.subscribe(onRound, Event.ROUND)
+    pub.subscribe(onSummary, Event.SUMMARY)
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
     if args.dry_run:
         log.info("Dry run. Will stop here ...")
     else:
-        await controller.calibrate()
+        final_zero_point = await controller.calibrate()
+        await update_zp(controller, final_zero_point)
 
 
 # -----------------
