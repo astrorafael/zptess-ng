@@ -10,6 +10,7 @@
 
 import logging
 import asyncio
+from typing import Mapping, Any
 
 # ---------------------------
 # Third-party library imports
@@ -52,6 +53,13 @@ class Controller(BaseController):
     Reader Controller specialized in reading the photometers
     """
 
+    def __init__(
+        self,
+        ref_params: Mapping[str, Any] | None = None,
+        test_params: Mapping[str, Any] | None = None,
+    ):
+        super().__init__(ref_params, test_params)
+
     async def calibrate(self) -> float:
         """Calibrate the test photometer against the refrence photometer retirnoing a Zero Point"""
         raise NotImplementedError("Not relevant method for %s" % (self.__class__.__name__))
@@ -60,7 +68,7 @@ class Controller(BaseController):
         raise NotImplementedError("Not relevant method for %s" % (self.__class__.__name__))
 
     async def init(self) -> None:
-        super().init()
+        await super().init()
         for role in self.roles:
             self.ring[role] = RingBuffer(capacity=1)
             self.task[role] = asyncio.create_task(self.photometer[role].readings())

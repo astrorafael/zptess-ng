@@ -62,16 +62,12 @@ class Controller(BaseController):
         test_params: Mapping[str, Any] | None = None,
     ):
         super().__init__(ref_params, test_params)
-        self.Session = AsyncSession
-        self.photometer = dict()
-        self.ring = dict()
-        self.phot_info = dict()
 
     async def calibrate(self) -> float:
         """Calibrate the test photometer against the refrence photometer retirnoing a Zero Point"""
         raise NotImplementedError("Not relevant method for %s" % (self.__class__.__name__))
 
     async def init(self) -> None:
-        super().init()
+        await super().init()
         for role in self.roles:
             self.ring[role] = RingBuffer(capacity=1)

@@ -27,7 +27,7 @@ from lica.asyncio.photometer import Role, Message
 
 from .. import __version__
 from .util import parser as prs
-from .util.logging import log_phot_info, update_zp
+from .util.misc import log_phot_info, update_zp
 from ..lib.photometer import Calibrator, Event, RoundStatsType
 
 
@@ -60,7 +60,7 @@ def onReading(role: Role, reading: Message) -> None:
         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
 
 
-def onRound(current: int, delta_mag: float, zero_point: float, stats: RoundStatsType) -> None:
+def onRound(current: int, mag_diff: float, zero_point: float, stats: RoundStatsType) -> None:
     global controller
     zp_abs = controller.zp_abs
     nrounds = controller.nrounds
@@ -74,7 +74,7 @@ def onRound(current: int, delta_mag: float, zero_point: float, stats: RoundStats
         current,
         nrounds,
         zero_point,
-        delta_mag,
+        mag_diff,
         zp_abs,
     )
     for role in (Role.REF, Role.TEST):
@@ -110,7 +110,10 @@ def onSummary(
     ref_freq_seq: Sequence[float],
     test_freq_seq: Sequence[float],
     best_ref_freq: float,
+    best_ref_mag: float,
     best_test_freq: float,
+    best_test_mag: float,
+    mag_diff: float,
     best_zero_point: float,
     final_zero_point: float,
 ) -> None:
@@ -120,8 +123,8 @@ def onSummary(
     log.info("Best ZP        list is %s", zero_point_seq)
     log.info("Best REF. Freq list is %s", ref_freq_seq)
     log.info("Best TEST Freq list is %s", test_freq_seq)
-    log.info("REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_ref_freq, 0, 0)
-    log.info("TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_test_freq, 0, 0)
+    log.info("REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_ref_freq, best_ref_mag, 0)
+    log.info("TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_test_freq, best_test_mag, mag_diff)
     log.info(
         "Final TEST ZP (%0.2f) = Best ZP (%0.2f) + ZP offset (%0.2f)",
         final_zero_point,

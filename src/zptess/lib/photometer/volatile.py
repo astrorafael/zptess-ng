@@ -149,13 +149,13 @@ class Controller(BaseController):
             stats_per_round = dict()
             for role in self.roles:
                 stats_per_round[role] = self.round_statistics(role)
-            delta_mag = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
-            zero_points.append(self.zp_abs + delta_mag)
+            mag_diff = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
+            zero_points.append(self.zp_abs + mag_diff)
             stats.append(stats_per_round)
             pub.sendMessage(
                 Event.ROUND,
                 current=i + 1,
-                delta_mag=delta_mag,
+                mag_diff=mag_diff,
                 zero_point=zero_points[i],
                 stats=stats_per_round,
             )
@@ -185,16 +185,24 @@ class Controller(BaseController):
             self.statistics(), *self.producer
         )
         best_zero_point = best(zero_points)
-        best_ref_req = best(ref_freqs)
+        best_ref_freq = best(ref_freqs)
         best_test_freq = best(test_freqs)
         final_zero_point = best_zero_point + self.zp_offset
+
+        best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
+        best_test_mag = self.zp_fict - 2.5 * math.log10(best_test_freq)
+        mag_diff = -2.5 * math.log10(best_ref_freq / best_test_freq)
+
         pub.sendMessage(
             Event.SUMMARY,
             zero_point_seq=zero_points,
             ref_freq_seq=ref_freqs,
             test_freq_seq=test_freqs,
-            best_ref_freq=best_ref_req,
+            best_ref_freq=best_ref_freq,
+            best_ref_mag=best_ref_mag,
             best_test_freq=best_test_freq,
+            best_test_mag=best_test_mag,
+            mag_diff = mag_diff,
             best_zero_point=best_zero_point,
             final_zero_point=final_zero_point,
         )

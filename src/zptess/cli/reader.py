@@ -27,7 +27,7 @@ from lica.asyncio.photometer import Role
 from .. import __version__
 from ..lib.photometer import Reader
 from .util import parser as prs
-from .util.logging import log_phot_info, log_messages
+from .util.misc import log_phot_info, log_messages
 
 # ----------------
 # Module constants
