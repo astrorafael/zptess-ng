@@ -13,7 +13,7 @@ import datetime
 import logging
 import asyncio
 
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 # ---------------------------
@@ -30,7 +30,7 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .util import best
-from .types import Event, RoundStatistics, SummaryStatistics
+from .types import Event, RoundStatistics, SummaryStatistics, RoundStatsType
 from .ring import RingBuffer
 from .base import Controller as BaseController
 
@@ -128,6 +128,14 @@ class Controller(BaseController):
     def magnitude(self, role: Role, freq: float, freq_offset):
         return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
 
+
+    def on_round(self, round_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.ROUND, **round_info)
+
+    def on_summary(self, summary_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.SUMMARY, **summary_info)
+
+
     def round_statistics(self, role: Role) -> RoundStatistics:
         log = logging.getLogger(role.tag())
         freq_offset = self.phot_info[role]["freq_offset"]
@@ -152,13 +160,13 @@ class Controller(BaseController):
             mag_diff = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
             zero_points.append(self.zp_abs + mag_diff)
             stats.append(stats_per_round)
-            pub.sendMessage(
-                Event.ROUND,
-                current=i + 1,
-                mag_diff=mag_diff,
-                zero_point=zero_points[i],
-                stats=stats_per_round,
-            )
+            round_info = {
+                "current": i + 1,
+                "mag_diff": mag_diff,
+                "zero_point": zero_points[i],
+                "stats": stats_per_round,
+            }
+            self.on_round(round_info)
             if i != self.nrounds - 1:
                 await asyncio.sleep(self.period)
         zero_points = [round(zp, 2) for zp in zero_points]
@@ -167,6 +175,7 @@ class Controller(BaseController):
         self.is_calibrated = True  # So no more buffer filling
         return zero_points, ref_freqs, test_freqs
 
+    
     async def calibrate(self) -> float:
         """
         Calibrate the Trst photometer against the Reference Photometer
@@ -192,18 +201,17 @@ class Controller(BaseController):
         best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
         best_test_mag = self.zp_fict - 2.5 * math.log10(best_test_freq)
         mag_diff = -2.5 * math.log10(best_ref_freq / best_test_freq)
-
-        pub.sendMessage(
-            Event.SUMMARY,
-            zero_point_seq=zero_points,
-            ref_freq_seq=ref_freqs,
-            test_freq_seq=test_freqs,
-            best_ref_freq=best_ref_freq,
-            best_ref_mag=best_ref_mag,
-            best_test_freq=best_test_freq,
-            best_test_mag=best_test_mag,
-            mag_diff = mag_diff,
-            best_zero_point=best_zero_point,
-            final_zero_point=final_zero_point,
-        )
+        summary_info = {
+            "zero_point_seq": zero_points,
+            "ref_freq_seq": ref_freqs,
+            "test_freq_seq": test_freqs,
+            "best_ref_freq": best_ref_freq,
+            "best_ref_mag": best_ref_mag,
+            "best_test_freq": best_test_freq,
+            "best_test_mag": best_test_mag,
+            "mag_diff": mag_diff,
+            "best_zero_point": best_zero_point,
+            "final_zero_point": final_zero_point,
+        }
+        self.on_summary(summary_info)
         return final_zero_point

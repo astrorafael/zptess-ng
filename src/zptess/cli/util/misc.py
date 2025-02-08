@@ -66,7 +66,7 @@ async def update_zp(controller: Controller, zero_point: float) -> None:
         if zero_point != stored_zp:
             log.critical(
                 "ZP Write verification failed: ZP to Write (%0.3f) "
-                "doesn't match ZP subsequently read (%0.3f). \u03c3 = %0.3f",
+                "doesn't match ZP subsequently read (%0.3f). \u0394 = %0.3f",
                 zero_point,
                 stored_zp,
                 zero_point - stored_zp,

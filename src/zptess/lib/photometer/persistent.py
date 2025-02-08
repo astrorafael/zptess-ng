@@ -64,8 +64,6 @@ class Controller(VolatileCalibrator):
     ):
         super().__init__(ref_params, test_params, common_params)
         self.db_queue = asyncio.Queue()
-        pub.subscribe(self.on_round, Event.ROUND)
-        pub.subscribe(self.on_summary, Event.SUMMARY)
 
     async def init(self) -> None:
         await super().init()
@@ -76,46 +74,18 @@ class Controller(VolatileCalibrator):
             msg = await self.db_queue.get()
             log.info(msg)
 
-    def on_round(
-        self, current: int, mag_diff: float, zero_point: float, stats: RoundStatsType
-    ) -> None:
+    def on_round(self, round_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.ROUND, **round_info)
         msg = {
             "event": Event.ROUND,
-            "payload": {
-                "current": current,
-                "mag_diff": mag_diff,
-                "zero_point": zero_point,
-                "stats": stats,
-            },
+            "payload": round_info
         }
         self.db_queue.put_nowait(msg)
 
-    def on_summary(
-        self,
-        zero_point_seq: Sequence[float],
-        ref_freq_seq: Sequence[float],
-        test_freq_seq: Sequence[float],
-        best_ref_freq: float,
-        best_ref_mag: float,
-        best_test_freq: float,
-        best_test_mag: float,
-        mag_diff: float,
-        best_zero_point: float,
-        final_zero_point: float,
-    ) -> None:
+    def on_summary(self, summary_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.SUMMARY, **summary_info)
         msg = {
             "event": Event.SUMMARY,
-            "payload": {
-                "zero_point_seq": zero_point_seq,
-                "ref_freq_seq": ref_freq_seq,
-                "test_freq_seq": test_freq_seq,
-                "best_ref_freq": best_ref_freq,
-                "best_ref_mag": best_ref_mag,
-                "best_test_freq": best_test_freq,
-                "best_test_mag": best_test_mag,
-                "mag_diff": mag_diff,
-                "best_zero_point": best_zero_point,
-                "final_zero_point": final_zero_point,
-            },
+            "payload": summary_info
         }
         self.db_queue.put_nowait(msg)
