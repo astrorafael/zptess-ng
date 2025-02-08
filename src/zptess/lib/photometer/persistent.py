@@ -7,9 +7,11 @@
 # --------------------
 # System wide imports
 # -------------------
+from __future__ import annotations
 
 import logging
 import asyncio
+from abc import ABC, abstractmethod
 
 from typing import Any, Mapping
 
@@ -61,15 +63,34 @@ class Controller(VolatileCalibrator):
     ):
         super().__init__(ref_params, test_params, common_params)
         self.db_queue = asyncio.Queue()
+        self._state = None
+
+    def transition_to(self, state: State):
+        """
+        The Context allows changing the State object at runtime.
+        """
+        log.info("Transition to %s", type(state).__name__)
+        self._state = state
+        self._state.controller = self
 
     async def init(self) -> None:
         await super().init()
+        self.transition_to(StartState())
         self.db_task = asyncio.create_task(self.db_writer())
 
     async def db_writer(self) -> None:
-        while True:
+        self.calibrating = True
+        while self.calibrating:
             msg = await self.db_queue.get()
-            log.info(msg)
+            event = msg["event"]
+            if event == Event.CAL_START:
+                self._state.handle_start()
+            elif event == Event.ROUND:
+                self._state.handle_round(msg["info"], msg["samples"])
+            elif event == Event.SUMMARY:
+                self._state.handle_summary(msg["info"])
+            else:
+                await self._state.handle_end()
 
     def on_calib_start(self) -> None:
         pub.sendMessage(Event.CAL_START)
@@ -99,3 +120,101 @@ class Controller(VolatileCalibrator):
         pub.sendMessage(Event.SUMMARY, **summary_info)
         msg = {"event": Event.SUMMARY, "info": summary_info}
         self.db_queue.put_nowait(msg)
+
+
+class State(ABC):
+    """
+    The base State class declares methods that all Concrete State should
+    implement and also provides a backreference to the Context object,
+    associated with the State. This backreference can be used by States to
+    transition the Context to another State.
+    """
+
+    _ctrl = None
+
+    @property
+    def controller(self) -> Controller:
+        return self._ctrl
+
+    @controller.setter
+    def controller(self, ctrl: Controller) -> None:
+        self._ctrl = ctrl
+
+    @abstractmethod
+    def handle_start(self) -> None:
+        pass
+
+    @abstractmethod
+    async def handle_end(self) -> None:
+        pass
+
+    @abstractmethod
+    def handle_round(self, round_info: Mapping[str, Any], samples: Mapping[str, Any]) -> None:
+        pass
+
+    @abstractmethod
+    def handle_summary(self, round_info: Mapping[str, Any]) -> None:
+        pass
+
+
+class StartState(State):
+    def handle_start(self) -> None:
+        log.info("%s.%s()", self.__class__.__name__, self.handle_start.__name__)
+        self.controller.transition_to(RoundState())
+
+    async def handle_end(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_end.__name__)
+
+    def handle_round(self, round_info: Mapping[str, Any], samples: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_round.__name__)
+
+    def handle_summary(self, round_info: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_summary.__name__)
+
+
+class RoundState(State):
+    def handle_start(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_start.__name__)
+
+    async def handle_end(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_end.__name__)
+
+    def handle_round(self, round_info: Mapping[str, Any], samples: Mapping[str, Any]) -> None:
+        log.info("%s.%s()", self.__class__.__name__, self.handle_round.__name__)
+        if round_info["current"] == self.controller.nrounds:
+            self.controller.transition_to(SummaryState())
+
+    def handle_summary(self, round_info: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_summary.__name__)
+
+
+class SummaryState(State):
+    def handle_start(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_start.__name__)
+
+    async def handle_end(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_end.__name__)
+
+    def handle_round(self, round_info: Mapping[str, Any], samples: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_round.__name__)
+
+    def handle_summary(self, round_info: Mapping[str, Any]) -> None:
+        log.info("%s.%s()", self.__class__.__name__, self.handle_summary.__name__)
+        self.controller.transition_to(EndState())
+
+
+class EndState(State):
+    def handle_start(self) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_start.__name__)
+
+    def handle_round(self, round_info: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_round.__name__)
+
+    def handle_summary(self, round_info: Mapping[str, Any], samples: Mapping[str, Any]) -> None:
+        log.warn("Ignoring %s.%s", self.__class__.__name__, self.handle_summary.__name__)
+
+    async def handle_end(self) -> None:
+        log.info("%s.%s()", self.__class__.__name__, self.handle_end.__name__)
+        await asyncio.sleep(4)
+        self.controller.calibrating = False
+        log.info("Ending Database Calibration Process")
