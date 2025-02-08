@@ -28,7 +28,7 @@ from lica.asyncio.photometer import Role, Message
 from .. import __version__
 from .util import parser as prs
 from .util.misc import log_phot_info, update_zp
-from ..lib.photometer import Calibrator, Event, RoundStatsType
+from ..lib.photometer import VolatileCalibrator, PersistentCalibrator, Event, RoundStatsType
 
 
 # ----------------
@@ -177,9 +177,15 @@ async def cli_calib_test(args: Namespace) -> None:
         "rounds": args.rounds,
         "author": " ".join(args.author) if args.author else None,
     }
-    controller = Calibrator(
-        ref_params=ref_params, test_params=test_params, common_params=common_params
-    )
+    if args.persist:
+        controller = PersistentCalibrator(
+            ref_params=ref_params, test_params=test_params, common_params=common_params
+        )
+        log.info("Logging results to a database")
+    else:
+        controller = VolatileCalibrator(
+            ref_params=ref_params, test_params=test_params, common_params=common_params
+        )
     pub.subscribe(on_reading, Event.READING)
     pub.subscribe(on_round, Event.ROUND)
     pub.subscribe(on_summary, Event.SUMMARY)
