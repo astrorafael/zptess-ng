@@ -50,7 +50,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # ------------------
 
 
-def onReading(role: Role, reading: Message) -> None:
+def on_reading(role: Role, reading: Message) -> None:
     global controller
     log = logging.getLogger(role.tag())
     current = len(controller.buffer(role))
@@ -60,7 +60,7 @@ def onReading(role: Role, reading: Message) -> None:
         log.info("%-9s waiting for enough samples, %03d remaining", name, total - current)
 
 
-def onRound(current: int, mag_diff: float, zero_point: float, stats: RoundStatsType) -> None:
+def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStatsType) -> None:
     global controller
     zp_abs = controller.zp_abs
     nrounds = controller.nrounds
@@ -105,7 +105,7 @@ def onRound(current: int, mag_diff: float, zero_point: float, stats: RoundStatsT
         log.info("=" * 72)
 
 
-def onSummary(
+def on_summary(
     zero_point_seq: Sequence[float],
     ref_freq_seq: Sequence[float],
     test_freq_seq: Sequence[float],
@@ -180,9 +180,9 @@ async def cli_calib_test(args: Namespace) -> None:
     controller = Calibrator(
         ref_params=ref_params, test_params=test_params, common_params=common_params
     )
-    pub.subscribe(onReading, Event.READING)
-    pub.subscribe(onRound, Event.ROUND)
-    pub.subscribe(onSummary, Event.SUMMARY)
+    pub.subscribe(on_reading, Event.READING)
+    pub.subscribe(on_round, Event.ROUND)
+    pub.subscribe(on_summary, Event.SUMMARY)
     await controller.init()
     await log_phot_info(controller, Role.REF)
     await log_phot_info(controller, Role.TEST)
