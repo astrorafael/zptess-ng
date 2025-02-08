@@ -75,6 +75,9 @@ class RingBuffer:
     def frequencies(self) -> Sequence[float]:
         return [item["freq"] for item in self._buffer]
 
+    def copy(self) -> Sequence[Message]:
+        return self._buffer.copy()
+
     def statistics(self) -> Tuple[float, float]:
         frequencies = tuple(item["freq"] for item in self._buffer)
         central = self._central_func(frequencies)

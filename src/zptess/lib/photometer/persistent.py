@@ -73,32 +73,29 @@ class Controller(VolatileCalibrator):
 
     def on_calib_start(self) -> None:
         pub.sendMessage(Event.CAL_START)
-        msg = {
-            "event": Event.CAL_START,
-            "payload": None
-        }
+        msg = {"event": Event.CAL_START, "info": None}
         self.db_queue.put_nowait(msg)
 
     def on_calib_end(self) -> None:
         pub.sendMessage(Event.CAL_END)
-        msg = {
-            "event": Event.CAL_END,
-            "payload": None
-        }
+        msg = {"event": Event.CAL_END, "info": None}
         self.db_queue.put_nowait(msg)
 
     def on_round(self, round_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.ROUND, **round_info)
+        # We must copy the sequence of samples of a given round
+        # since the background filling tasks are active
         msg = {
             "event": Event.ROUND,
-            "payload": round_info
+            "info": round_info,
+            "samples": {
+                Role.REF: self.ring[Role.REF].copy(),
+                Role.TEST: self.ring[Role.TEST].copy(),
+            },
         }
         self.db_queue.put_nowait(msg)
 
     def on_summary(self, summary_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.SUMMARY, **summary_info)
-        msg = {
-            "event": Event.SUMMARY,
-            "payload": summary_info
-        }
+        msg = {"event": Event.SUMMARY, "info": summary_info}
         self.db_queue.put_nowait(msg)
