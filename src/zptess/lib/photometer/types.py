@@ -25,4 +25,6 @@ class Event(StrEnum):
 	READING = "reading_event"
 	ROUND = "round_event"
 	SUMMARY = "summary_event"
+	CAL_START = "calib_start_event"
+	CAL_END = "calib_end_event"
 

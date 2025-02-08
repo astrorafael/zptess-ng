@@ -11,7 +11,7 @@
 import logging
 import asyncio
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 # ---------------------------
@@ -26,14 +26,11 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .volatile import Controller as VolatileCalibrator
-from .types import Event, RoundStatsType
+from .types import Event
 
 # ----------------
 # Module constants
 # ----------------
-
-
-SECTION = {Role.REF: "ref-stats", Role.TEST: "test-stats"}
 
 # -----------------------
 # Module global variables
@@ -53,7 +50,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 class Controller(VolatileCalibrator):
     """
-    Reader Controller specialized in reading the photometers
+    Database-based Photometer Calibration Controller
     """
 
     def __init__(
@@ -73,6 +70,22 @@ class Controller(VolatileCalibrator):
         while True:
             msg = await self.db_queue.get()
             log.info(msg)
+
+    def on_calib_start(self) -> None:
+        pub.sendMessage(Event.CAL_START)
+        msg = {
+            "event": Event.CAL_START,
+            "payload": None
+        }
+        self.db_queue.put_nowait(msg)
+
+    def on_calib_end(self) -> None:
+        pub.sendMessage(Event.CAL_END)
+        msg = {
+            "event": Event.CAL_END,
+            "payload": None
+        }
+        self.db_queue.put_nowait(msg)
 
     def on_round(self, round_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.ROUND, **round_info)

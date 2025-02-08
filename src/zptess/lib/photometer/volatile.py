@@ -13,7 +13,7 @@ import datetime
 import logging
 import asyncio
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 # ---------------------------
@@ -30,7 +30,7 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .util import best
-from .types import Event, RoundStatistics, SummaryStatistics, RoundStatsType
+from .types import Event, RoundStatistics, SummaryStatistics
 from .ring import RingBuffer
 from .base import Controller as BaseController
 
@@ -62,7 +62,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 class Controller(BaseController):
     """
-    Reader Controller specialized in reading the photometers
+    In-memory Photometer Calibration Controller
     """
 
     def __init__(
@@ -128,13 +128,17 @@ class Controller(BaseController):
     def magnitude(self, role: Role, freq: float, freq_offset):
         return self.zp_fict - 2.5 * math.log10(freq - freq_offset)
 
+    def on_calib_start(self) -> None:
+        pub.sendMessage(Event.CAL_START)
+
+    def on_calib_end(self) -> None:
+        pub.sendMessage(Event.CAL_END)
 
     def on_round(self, round_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.ROUND, **round_info)
 
     def on_summary(self, summary_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.SUMMARY, **summary_info)
-
 
     def round_statistics(self, role: Role) -> RoundStatistics:
         log = logging.getLogger(role.tag())
@@ -175,12 +179,12 @@ class Controller(BaseController):
         self.is_calibrated = True  # So no more buffer filling
         return zero_points, ref_freqs, test_freqs
 
-    
     async def calibrate(self) -> float:
         """
         Calibrate the Trst photometer against the Reference Photometer
         and return the final Zero Point to Write to the Test Photometer
         """
+        self.on_calib_start()
         coros = [self.fill_buffer(role) for role in self.roles]
         # Waiting for both circular buffers to be filled
         await asyncio.gather(*coros)
@@ -214,4 +218,5 @@ class Controller(BaseController):
             "final_zero_point": final_zero_point,
         }
         self.on_summary(summary_info)
+        self.on_calib_end()
         return final_zero_point
