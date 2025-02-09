@@ -91,6 +91,7 @@ class Controller(VolatileCalibrator):
                 self._state.handle_summary(msg["info"])
             else:
                 await self._state.handle_end()
+        log.info("Database listener ends here")
 
     def on_calib_start(self) -> None:
         pub.sendMessage(Event.CAL_START)
