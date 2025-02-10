@@ -115,6 +115,11 @@ aload stage="photometer" folder="migra":
         exit 1
     fi
 
+calib persist="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    zp-calib --console test -b 9 -R 3 -P 5 {{persist}}
+
 [private]
 db-restore:
     #!/usr/bin/env bash
