@@ -197,9 +197,9 @@ class Controller(BaseController):
         (zero_points, ref_freqs, test_freqs), _, _ = await asyncio.gather(
             self.statistics(), *self.producer
         )
-        best_zero_point = best(zero_points)
-        best_ref_freq = best(ref_freqs)
-        best_test_freq = best(test_freqs)
+        best_zp_method, best_zero_point = best(zero_points)
+        best_ref_freq_method, best_ref_freq = best(ref_freqs)
+        best_test_freq_method, best_test_freq = best(test_freqs)
         final_zero_point = best_zero_point + self.zp_offset
 
         best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
@@ -210,11 +210,14 @@ class Controller(BaseController):
             "ref_freq_seq": ref_freqs,
             "test_freq_seq": test_freqs,
             "best_ref_freq": best_ref_freq,
+            "best_ref_freq_method": best_ref_freq_method,
             "best_ref_mag": best_ref_mag,
             "best_test_freq": best_test_freq,
+            "best_test_freq_method": best_test_freq_method,
             "best_test_mag": best_test_mag,
             "mag_diff": mag_diff,
             "best_zero_point": best_zero_point,
+            "best_zero_point_method": best_zp_method,
             "final_zero_point": final_zero_point,
         }
         self.on_summary(summary_info)

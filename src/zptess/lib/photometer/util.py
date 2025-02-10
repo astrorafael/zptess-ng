@@ -1,8 +1,9 @@
 import statistics
 
 
-from typing import  Sequence
+from typing import  Sequence, Tuple
 
+from .. import CentralTendency
 
 def mode(sequence: Sequence) -> float:
     try:
@@ -14,9 +15,11 @@ def mode(sequence: Sequence) -> float:
         result = statistics.mode(sequence)
     return result
 
-def best(sequence: Sequence) -> float:
-	try:
-		result = mode(sequence)
-	except statistics.StatisticsError:
-		result = statistics.median_low(sequence)
-	return result
+def best(sequence: Sequence) -> Tuple[CentralTendency, float]:
+    try:
+        result = mode(sequence)
+        central = CentralTendency.MODE
+    except statistics.StatisticsError:
+        result = statistics.median_low(sequence)
+        central = CentralTendency.MEDIAN
+    return central, result

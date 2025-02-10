@@ -1,6 +1,6 @@
 
 
-from typing import Tuple, Dict, Sequence, Mapping
+from typing import Tuple, Sequence, Mapping
 
 from lica import StrEnum
 from lica.asyncio.photometer import Role

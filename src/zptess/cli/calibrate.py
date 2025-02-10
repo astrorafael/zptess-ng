@@ -29,7 +29,7 @@ from .. import __version__
 from .util import parser as prs
 from .util.misc import log_phot_info, update_zp
 from ..lib.photometer import VolatileCalibrator, PersistentCalibrator, Event, RoundStatsType
-
+from ..lib import CentralTendency
 
 # ----------------
 # Module constants
@@ -110,11 +110,14 @@ def on_summary(
     ref_freq_seq: Sequence[float],
     test_freq_seq: Sequence[float],
     best_ref_freq: float,
+    best_ref_freq_method: CentralTendency,
     best_ref_mag: float,
     best_test_freq: float,
+    best_test_freq_method: CentralTendency,
     best_test_mag: float,
     mag_diff: float,
     best_zero_point: float,
+    best_zero_point_method: CentralTendency,
     final_zero_point: float,
 ) -> None:
     global controller
@@ -123,12 +126,25 @@ def on_summary(
     log.info("Best ZP        list is %s", zero_point_seq)
     log.info("Best REF. Freq list is %s", ref_freq_seq)
     log.info("Best TEST Freq list is %s", test_freq_seq)
-    log.info("REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_ref_freq, best_ref_mag, 0)
-    log.info("TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f", best_test_freq, best_test_mag, mag_diff)
     log.info(
-        "Final TEST ZP (%0.2f) = Best ZP (%0.2f) + ZP offset (%0.2f)",
+        "REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f (%s)",
+        best_ref_freq,
+        best_ref_mag,
+        0,
+        best_ref_freq_method,
+    )
+    log.info(
+        "TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f (%s)",
+        best_test_freq,
+        best_test_mag,
+        mag_diff,
+        best_test_freq_method,
+    )
+    log.info(
+        "Final TEST ZP (%0.2f) = Best ZP (%0.2f) (%s) + ZP offset (%0.2f)",
         final_zero_point,
         best_zero_point,
+        best_zero_point_method,
         controller.zp_offset,
     )
     log.info(
