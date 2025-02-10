@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
+from collections import defaultdict
 
 from typing import Any, Mapping, Dict
 
@@ -29,7 +30,7 @@ from lica.sqlalchemy.asyncio.dbase import AsyncSession
 
 from .volatile import Controller as VolatileCalibrator
 from .types import Event
-from ..dbase.model import Photometer, Summary
+from ..dbase.model import Photometer, Summary, Round, Sample
 from .. import Calibration
 from ... import __version__
 
@@ -161,6 +162,51 @@ class Controller(VolatileCalibrator):
             session.add(summary[role])
         return summary
 
+    def do_rounds(self, session: AsyncSession, summaries: Dict[Role,Photometer]) ->None:
+        log.info("A por los rounds")
+        rounds = defaultdict(list)
+
+        for role, summary in summaries.items():
+            for i in range(self.rounds):
+                rounds[role].append(
+                    Round(
+                        seq = self.temp_round_info[role][i]["current"],
+                        role = role,
+                        freq = self.temp_round_info[role]
+
+                    )
+                )
+
+   
+Hay que pensarlo todo otra vez porque hay que ir caumulando la roundinfo en el gestor de eventos
+
+    
+
+    # session:    Mapped[datetime] = mapped_column(DateTime)
+    freq: Mapped[Optional[float]]
+    # Either average or median of samples for this frequencies round
+    central: Mapped[CentralTendencyType] = mapped_column(CentralTendencyType, nullable=True)
+    stddev: Mapped[Optional[float]]  # Standard deviation for frequency central estimate
+    mag: Mapped[
+        Optional[float]
+    ]  # magnitiude corresponding to central frequency and summing ficticious zero point
+    zp_fict: Mapped[Optional[float]]  # Ficticious ZP to estimate instrumental magnitudes (=20.50)
+    zero_point: Mapped[
+        Optional[float]
+    ]  # Estimated Zero Point for this round ('test' photometer round only, else NULL)
+    nsamples: Mapped[Optional[int]]  # Number of samples for this round
+    duration: Mapped[Optional[float]]  # Approximate duration, in seconds
+    begin_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    end_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    # This is not a real column, it s meant for the ORM
+    summary: Mapped["Summary"] = relationship(back_populates="rounds")
+    # samples per round. Shoudl match the window size
+    # This is not a real column, it s meant for the ORM
+                
+
+
+    
 
     async def do_persist(self):
         async with self.Session() as session:
@@ -169,4 +215,6 @@ class Controller(VolatileCalibrator):
                 log.info(photometer)
                 summary = self.do_summary(session, photometer)
                 log.info(summary)
+                self.do_rounds(session, summary)
+
         self.db_active = False
