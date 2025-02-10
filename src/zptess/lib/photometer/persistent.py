@@ -138,7 +138,7 @@ class Controller(VolatileCalibrator):
                 session.add(phot[role])
         return phot
 
-    async def do_summary(self, session: AsyncSession, photometers: Dict[Role,Photometer]) -> Dict[Role,Summary]:
+    def do_summary(self, session: AsyncSession, photometers: Dict[Role,Photometer]) -> Dict[Role,Summary]:
         log.info("A por los sumarios")
         summary = dict()
         for role, phot in photometers.items():
@@ -167,6 +167,6 @@ class Controller(VolatileCalibrator):
             async with session.begin():
                 photometer = await self.do_photometer(session)
                 log.info(photometer)
-                summary = await self.do_summary(session, photometer)
+                summary = self.do_summary(session, photometer)
                 log.info(summary)
         self.db_active = False
