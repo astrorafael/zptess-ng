@@ -204,6 +204,23 @@ class Controller(VolatileCalibrator):
                 session.add(r)
         return rounds
 
+    def do_samples(self, session: AsyncSession, summaries: Dict[Role, Photometer]) -> None:
+        log.info("A por los samples")
+        for i, round_info in enumerate(self.temp_round_info):
+            for role, summary in summaries.items():
+                for sample in self.temp_round_samples[i][role]:
+                    s = Sample(
+                        tstamp = sample["tstamp"],
+                        role = role,
+                        seq = sample["seq"],
+                        freq = sample["freq"],
+                        temp_box =  sample["tamb"]
+                    )
+                    s.summary = summary
+                    log.info(s)
+                    session.add(s)
+        
+
     async def do_persist(self):
         async with self.Session() as session:
             async with session.begin():
@@ -211,6 +228,7 @@ class Controller(VolatileCalibrator):
                 log.info(photometer)
                 summary = self.do_summary(session, photometer)
                 log.info(summary)
-                self.do_rounds(session, summary)
+                rounds = self.do_rounds(session, summary)
+                self.do_samples(session, summary)
 
         self.db_active = False

@@ -12,7 +12,7 @@
 import sys
 import logging
 
-from typing import Optional, List
+from typing import Optional, List, Set
 from datetime import datetime
 
 # =====================
@@ -205,7 +205,7 @@ class Summary(Model):
     # These are not a real columns, it is meant for the ORM
     photometer: Mapped["Photometer"] = relationship(back_populates="calibrations")
     rounds: Mapped[List["Round"]] = relationship(back_populates="summary")
-    samples: Mapped[List["Sample"]] = relationship(back_populates="summary")
+    samples: Mapped[Set["Sample"]] = relationship(back_populates="summary")
 
     def __repr__(self) -> str:
         return f"Summary(session={datestr(self.session)}, role={self.role!r}, phot_id={self.phot_id!r})"
@@ -298,6 +298,9 @@ class Sample(Model):
 
     def __ge__(self, other: Self) -> bool:
         return self.tstamp >= other.tstamp
+
+    def __hash__(self):
+        return hash(self.tstamp)
 
     __table_args__ = (UniqueConstraint(tstamp, role), {})
 
