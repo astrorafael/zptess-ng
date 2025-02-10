@@ -151,6 +151,7 @@ class Photometer(Model):
     name: Mapped[str] = mapped_column(String(10))
     mac: Mapped[str] = mapped_column(String(17))
     sensor: Mapped[SensorType] = mapped_column(SensorType, default=Sensor.TSL237)
+    freq_offset: Mapped[float]
     model: Mapped[PhotModelType] = mapped_column(PhotModelType)
     firmware: Mapped[Optional[str]] = mapped_column(String(17))
     filter: Mapped[Optional[str]] = mapped_column(String(32), default="UV/IR-740")
