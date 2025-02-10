@@ -13,7 +13,7 @@ import logging
 import asyncio
 from collections import defaultdict
 
-from typing import Any, Mapping, Dict
+from typing import Any, Mapping, Dict, List
 
 
 # ---------------------------
@@ -79,14 +79,16 @@ class Controller(VolatileCalibrator):
 
     async def db_writer(self) -> None:
         self.db_active = True
+        self.temp_round_info = list()
+        self.temp_round_samples = list()
         while self.db_active:
             msg = await self.db_queue.get()
             event = msg["event"]
             if event == Event.CAL_START:
                 pass
             elif event == Event.ROUND:
-                self.temp_round_info = msg["info"]
-                self.temp_round_samples = msg["samples"]
+                self.temp_round_info.append(msg["info"])
+                self.temp_round_samples.append(msg["samples"])
             elif event == Event.SUMMARY:
                 self.temp_summary = msg["info"]
             else:
@@ -122,7 +124,7 @@ class Controller(VolatileCalibrator):
         msg = {"event": Event.SUMMARY, "info": summary_info}
         self.db_queue.put_nowait(msg)
 
-    async def do_photometer(self, session: AsyncSession) -> Dict[Role,Photometer]:
+    async def do_photometer(self, session: AsyncSession) -> Dict[Role, Photometer]:
         phot = dict()
         for role in self.roles:
             name = self.phot_info[role]["name"]
@@ -139,74 +141,68 @@ class Controller(VolatileCalibrator):
                 session.add(phot[role])
         return phot
 
-    def do_summary(self, session: AsyncSession, photometers: Dict[Role,Photometer]) -> Dict[Role,Summary]:
+    def do_summary(
+        self, session: AsyncSession, photometers: Dict[Role, Photometer]
+    ) -> Dict[Role, Summary]:
         log.info("A por los sumarios")
         summary = dict()
         for role, phot in photometers.items():
             summary[role] = Summary(
-                session = self.meas_session,
-                role = role,
-                calibration = Calibration.AUTO,
-                calversion = __version__,
-                author = self.author,
-                zp_offset = self.zp_offset if role == Role.TEST else 0,
-                prev_zp = self.phot_info[role]["zp"] if role == Role.TEST else self.zp_abs,
-                zero_point = self.temp_summary["best_zero_point"] if role == Role.TEST else self.zp_abs,
-                zero_point_method = self.temp_summary["best_zero_point_method"] if role == Role.TEST else None,
-                freq = self.temp_summary["best_ref_freq"] if role == Role.REF else self.temp_summary["best_test_freq"],
-                freq_method = self.temp_summary["best_ref_freq_method"] if role == Role.REF else self.temp_summary["best_test_freq_method"],
-                mag = self.temp_summary["best_ref_mag"] if role == Role.REF else self.temp_summary["best_test_mag"],
-                nrounds = self.nrounds,
+                session=self.meas_session,
+                role=role,
+                calibration=Calibration.AUTO,
+                calversion=__version__,
+                author=self.author,
+                zp_offset=self.zp_offset if role == Role.TEST else 0,
+                prev_zp=self.phot_info[role]["zp"] if role == Role.TEST else self.zp_abs,
+                zero_point=self.temp_summary["best_zero_point"]
+                if role == Role.TEST
+                else self.zp_abs,
+                zero_point_method=self.temp_summary["best_zero_point_method"]
+                if role == Role.TEST
+                else None,
+                freq=self.temp_summary["best_ref_freq"]
+                if role == Role.REF
+                else self.temp_summary["best_test_freq"],
+                freq_method=self.temp_summary["best_ref_freq_method"]
+                if role == Role.REF
+                else self.temp_summary["best_test_freq_method"],
+                mag=self.temp_summary["best_ref_mag"]
+                if role == Role.REF
+                else self.temp_summary["best_test_mag"],
+                nrounds=self.nrounds,
             )
             summary[role].photometer = phot
             session.add(summary[role])
         return summary
 
-    def do_rounds(self, session: AsyncSession, summaries: Dict[Role,Photometer]) ->None:
+    def do_rounds(
+        self, session: AsyncSession, summaries: Dict[Role, Photometer]
+    ) -> Dict[Role, List[Photometer]]:
         log.info("A por los rounds")
         rounds = defaultdict(list)
-
-        for role, summary in summaries.items():
-            for i in range(self.rounds):
-                rounds[role].append(
-                    Round(
-                        seq = self.temp_round_info[role][i]["current"],
-                        role = role,
-                        freq = self.temp_round_info[role]
-
-                    )
+        for i, round_info in enumerate(self.temp_round_info):
+            for role, summary in summaries.items():
+                samples = self.temp_round_samples[i][role]
+                r = Round(
+                    seq=round_info["current"],
+                    role=role,
+                    freq=round_info["stats"][role][0],
+                    stddev=round_info["stats"][role][1],
+                    mag=round_info["stats"][role][2],
+                    central=self.central,
+                    zp_fict=self.zp_fict,
+                    zero_point=round_info["zero_point"] if role == Role.TEST else None,
+                    nsamples=len(samples),
+                    begin_tstamp=samples[0]["tstamp"],
+                    end_tstamp=samples[-1]["tstamp"],
+                    duration=(samples[-1]["tstamp"] - samples[0]["tstamp"]).total_seconds(),
+                    summary=summary,
                 )
-
-   
-Hay que pensarlo todo otra vez porque hay que ir caumulando la roundinfo en el gestor de eventos
-
-    
-
-    # session:    Mapped[datetime] = mapped_column(DateTime)
-    freq: Mapped[Optional[float]]
-    # Either average or median of samples for this frequencies round
-    central: Mapped[CentralTendencyType] = mapped_column(CentralTendencyType, nullable=True)
-    stddev: Mapped[Optional[float]]  # Standard deviation for frequency central estimate
-    mag: Mapped[
-        Optional[float]
-    ]  # magnitiude corresponding to central frequency and summing ficticious zero point
-    zp_fict: Mapped[Optional[float]]  # Ficticious ZP to estimate instrumental magnitudes (=20.50)
-    zero_point: Mapped[
-        Optional[float]
-    ]  # Estimated Zero Point for this round ('test' photometer round only, else NULL)
-    nsamples: Mapped[Optional[int]]  # Number of samples for this round
-    duration: Mapped[Optional[float]]  # Approximate duration, in seconds
-    begin_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    end_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
-
-    # This is not a real column, it s meant for the ORM
-    summary: Mapped["Summary"] = relationship(back_populates="rounds")
-    # samples per round. Shoudl match the window size
-    # This is not a real column, it s meant for the ORM
-                
-
-
-    
+                rounds[role].append(r)
+                log.info(r)
+                session.add(r)
+        return rounds
 
     async def do_persist(self):
         async with self.Session() as session:
