@@ -11,7 +11,7 @@
 import logging
 import statistics
 import collections
-from typing import Tuple, Dict, Sequence, Any
+from typing import Tuple, Mapping, Sequence, Any
 
 # -------------------
 # Third party imports
@@ -28,7 +28,7 @@ from .. import CentralTendency
 # Module constants
 # ----------------
 
-Message = Dict[str, Any]
+Message = Mapping[str, Any]
 
 # -----------------------
 # Module global variables
@@ -40,6 +40,31 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -------
 # Classes
 # -------
+# This meant for easy sample de-duplication
+# which are usually shared between rounds
+
+class UniqueReading(dict):
+    """A hashable, subclaased dictionary based on the "tstamp" keyword and value"""
+
+    def __init__(self, *args, **kwargs):
+        self.update(*args, **kwargs)
+
+    def __getitem__(self, key):
+        return dict.__getitem__(self, key)
+
+    def __setitem__(self, key, val):
+        dict.__setitem__(self, key, val)
+
+    def __repr__(self):
+        return "%s(%s)" % (type(self).__name__, dict.__repr__(self))
+
+    def __hash__(self):
+        return int(dict.__getitem__(self, "tstamp").timestamp() * 1000)
+
+    def update(self, *args, **kwargs):
+        for k, v in dict(*args, **kwargs).items():
+            self[k] = v
+
 
 
 class RingBuffer:
@@ -72,11 +97,8 @@ class RingBuffer:
     def append(self, item: Message) -> None:
         self._buffer.append(item)
 
-    def frequencies(self) -> Sequence[float]:
-        return [item["freq"] for item in self._buffer]
-
     def copy(self) -> Sequence[Message]:
-        return self._buffer.copy()
+        return tuple(UniqueReading(item) for item in self._buffer)
 
     def statistics(self) -> Tuple[float, float]:
         frequencies = tuple(item["freq"] for item in self._buffer)

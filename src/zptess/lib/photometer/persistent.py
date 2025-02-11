@@ -53,32 +53,6 @@ log = logging.getLogger(__name__.split(".")[-1])
 # Auxiliary classes
 # -----------------
 
-
-# This meant for easy sample de-duplication
-# which are usually shared between rounds
-class UniqueSample(dict):
-    """A hashable subclassed dictionary based on the "tstamp" keyword and value"""
-
-    def __init__(self, *args, **kwargs):
-        self.update(*args, **kwargs)
-
-    def __getitem__(self, key):
-        return dict.__getitem__(self, key)
-
-    def __setitem__(self, key, val):
-        dict.__setitem__(self, key, val)
-
-    def __repr__(self):
-        return "%s(%s)" % (type(self).__name__, dict.__repr__(self))
-
-    def __hash__(self):
-        return int(dict.__getitem__(self, "tstamp").timestamp() * 1000)
-
-    def update(self, *args, **kwargs):
-        for k, v in dict(*args, **kwargs).items():
-            self[k] = v
-
-
 class Controller(VolatileCalibrator):
     """
     Database-based Photometer Calibration Controller
@@ -227,7 +201,7 @@ class Controller(VolatileCalibrator):
             # samples = set(item for item in q for q in self.accum_samples[role])
             samples = set()
             for q in self.accum_samples[role]:
-                samples.update(set(UniqueSample(item) for item in q))
+                samples.update(set(q))
             samples_db[role] = [
                 Sample(
                     tstamp=sample["tstamp"],
