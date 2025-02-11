@@ -77,6 +77,24 @@ class Controller(VolatileCalibrator):
         asyncio.gather(self.db_task)
         return zp
 
+    async def write_zp(self, zero_point: float) -> float:
+        """May raise asyncio.exceptions.TimeoutError in particular"""
+        try:
+            stored_zero_point = await super().write_zp(zero_point)
+        except Exception:
+            updated = False
+        else:
+            updated = True
+        async with self.Session() as session:
+            async with session.begin():
+                log.info("Setting upd_flag in summary database to %s", updated)
+                q = select(Summary).where(Summary.session == self.meas_session)
+                db_summaries = (await session.scalars(q)).all()
+                for db_summary in db_summaries:
+                    db_summary.upd_flag = False if db_summary.role == Role.REF else updated
+        return stored_zero_point
+
+
     async def db_writer(self) -> None:
         self.db_active = True
         self.temp_round_info = list()
@@ -131,7 +149,6 @@ class Controller(VolatileCalibrator):
                 for key in ("name", "mac", "model", "sensor", "freq_offset", "firmware"):
                     col[key] = self.phot_info[role][key] or None
                 col["freq_offset"] = col["freq_offset"] or 0.0
-                log.info("Creating %s DB Photometer with data %s", role, col)
                 phot[role] = Photometer(**col)
                 session.add(phot[role])
         return phot
