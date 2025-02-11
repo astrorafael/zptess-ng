@@ -69,7 +69,7 @@ def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStats
     phot_info = controller.phot_info
     central = controller.central
     zp_fict = controller.zp_fict
-    log.info("=" * 72)
+    log.info("=" * 74)
     log.info(
         "%-10s %02d/%02d: New ZP = %0.2f = \u0394(ref-test) Mag (%0.2f) + ZP Abs (%0.2f)",
         "ROUND",
@@ -90,7 +90,7 @@ def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStats
         N = len(controller.ring[role])
         freq, stdev, mag = stats[role]
         log.info(
-            "[%s] %-8s (%s-%s)[%.1fs][%03d] %6s f = %0.3f Hz, \u03c3 = %0.3f Hz, m = %0.2f @ %0.2f",
+            "[%s] %-8s (%s-%s)[%4.1fs][%03d] %6s f = %0.3f Hz, \u03c3 = %0.3f Hz, m = %0.2f @ %0.2f",
             tag,
             name,
             Ti,
@@ -104,7 +104,7 @@ def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStats
             zp_fict,
         )
     if current == nrounds:
-        log.info("=" * 72)
+        log.info("=" * 74)
 
 
 def on_summary(
@@ -120,7 +120,7 @@ def on_summary(
     overlapping_windows: Mapping[Role, Sequence[float | None]],
 ) -> None:
     global controller
-    log.info("#" * 72)
+    log.info("#" * 74)
     log.info("Session = %s", controller.meas_session.strftime("%Y-%m-%dT%H:%M:%S"))
     log.info("Best ZP        list is %s", zero_point_seq)
     log.info("Best REF. Freq list is %s", freq_seq[Role.REF])
@@ -153,7 +153,7 @@ def on_summary(
     )
     log.info("REF. rounds overlap \u0394T = %s", overlapping_windows[Role.REF])
     log.info("TEST rounds overlap \u0394T = %s", overlapping_windows[Role.TEST])
-    log.info("#" * 72)
+    log.info("#" * 74)
 
 
 # -----------------

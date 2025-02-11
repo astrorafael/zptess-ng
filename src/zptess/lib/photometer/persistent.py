@@ -74,7 +74,7 @@ class Controller(VolatileCalibrator):
 
     async def calibrate(self) -> float:
         zp = await super().calibrate()
-        asyncio.gather(self.db_task)
+        await asyncio.gather(self.db_task)
         return zp
 
     async def write_zp(self, zero_point: float) -> float:
