@@ -244,17 +244,13 @@ class Controller(VolatileCalibrator):
                 session.add(s)
         return samples_db
 
-        # for i, q in enumerate(self.accum_samples[role]):
-        #     for sample in q:
-        #         s = Sample(
-        #             tstamp=sample["tstamp"],
-        #             role=role,
-        #             seq=sample["seq"],
-        #             freq=sample["freq"],
-        #             temp_box=sample["tamb"],
-        #         )
-        #         s.summary = summary
-        #         rounds[role][i].samples.append(s)
+    def do_samples_to_rounds(
+        self,
+        session: AsyncSession,
+        rounds: Dict[Role, List[Round]],
+        samples: Dict[Role, List[Sample]],
+    ) -> None:
+        pass
 
     async def do_persist(self):
         async with self.Session() as session:
@@ -265,5 +261,6 @@ class Controller(VolatileCalibrator):
                 log.info(summary)
                 rounds = self.do_rounds(session, summary)
                 samples = self.do_samples(session, summary)
+                self.do_samples_to_rounds(session, rounds, samples)
 
         self.db_active = False
