@@ -158,6 +158,7 @@ class Controller(BaseController):
     async def statistics(self) -> SummaryStatistics:
         zero_points = list()
         stats = list()
+        freqs = dict()
         for i in range(0, self.nrounds):
             stats_per_round = dict()
             for role in self.roles:
@@ -176,23 +177,21 @@ class Controller(BaseController):
             if i != self.nrounds - 1:
                 await asyncio.sleep(self.period)
         zero_points = [round(zp, 2) for zp in zero_points]
-        ref_freqs = [stats_pr[Role.REF][0] for stats_pr in stats]
-        test_freqs = [stats_pr[Role.TEST][0] for stats_pr in stats]
+        for role in self.roles:
+            freqs[role] = [stats_pr[role][0] for stats_pr in stats]
         self.is_calibrated = True  # So no more buffer filling
-        return zero_points, ref_freqs, test_freqs
+        return zero_points, freqs
 
-    def overlapping_windows(self) -> Mapping[Role,Sequence[float|None]]:
+    def overlapping_windows(self) -> Mapping[Role, Sequence[float | None]]:
         overlaps = defaultdict(list)
         for role in self.roles:
             for i, q in enumerate(self.accum_samples[role]):
-                if i<(self.nrounds-1):
-                    next_q = self.accum_samples[role][i+1]
+                if i < (self.nrounds - 1):
+                    next_q = self.accum_samples[role][i + 1]
                     T = (q[-1]["tstamp"] - next_q[0]["tstamp"]).total_seconds()
                     T = None if T <= 0 else T
                     overlaps[role].append(T)
         return overlaps
-                
-            
 
     async def calibrate(self) -> float:
         """
@@ -209,33 +208,29 @@ class Controller(BaseController):
         self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
         self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
         self.is_calibrated = False
-        (zero_points, ref_freqs, test_freqs), _, _ = await asyncio.gather(
-            self.statistics(), *self.producer
-        )
+        (zero_points, freqs), _, _ = await asyncio.gather(self.statistics(), *self.producer)
         best_zp_method, best_zero_point = best(zero_points)
-        best_ref_freq_method, best_ref_freq = best(ref_freqs)
-        best_test_freq_method, best_test_freq = best(test_freqs)
+        best_freq = dict()
+        best_freq_method =dict()
+        best_mag = dict()
+        for role in self.roles:
+            best_freq_method[role], best_freq[role] = best(freqs[role])
+            best_mag[role] = self.zp_fict - 2.5 * math.log10(best_freq[role])
         final_zero_point = best_zero_point + self.zp_offset
-        best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
-        best_test_mag = self.zp_fict - 2.5 * math.log10(best_test_freq)
-        mag_diff = -2.5 * math.log10(best_ref_freq / best_test_freq)
+        mag_diff = -2.5 * math.log10(best_freq[Role.REF] /best_freq[Role.TEST])
         overlap = self.overlapping_windows()
         summary_info = {
             "zero_point_seq": zero_points,
-            "ref_freq_seq": ref_freqs,
-            "test_freq_seq": test_freqs,
-            "best_ref_freq": best_ref_freq,
-            "best_ref_freq_method": best_ref_freq_method,
-            "best_ref_mag": best_ref_mag,
-            "best_test_freq": best_test_freq,
-            "best_test_freq_method": best_test_freq_method,
-            "best_test_mag": best_test_mag,
+            "freq_seq": freqs,
+            "best_freq": best_freq,
+            "best_freq_method": best_freq_method,
+            "best_mag": best_mag,
             "mag_diff": mag_diff,
             "best_zero_point": best_zero_point,
             "best_zero_point_method": best_zp_method,
             "final_zero_point": final_zero_point,
-            "overlapping_ref_windows": overlap[Role.REF],
-            "overlapping_test_windows": overlap[Role.TEST],
+            "overlapping_windows": overlap,
+          
         }
         self.on_summary(summary_info)
         self.on_calib_end()

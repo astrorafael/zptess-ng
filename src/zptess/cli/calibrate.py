@@ -11,7 +11,7 @@
 import logging
 from datetime import timedelta
 from argparse import Namespace, ArgumentParser
-from typing import Sequence
+from typing import Sequence, Mapping
 
 # -------------------
 # Third party imports
@@ -109,40 +109,35 @@ def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStats
 
 def on_summary(
     zero_point_seq: Sequence[float],
-    ref_freq_seq: Sequence[float],
-    test_freq_seq: Sequence[float],
-    best_ref_freq: float,
-    best_ref_freq_method: CentralTendency,
-    best_ref_mag: float,
-    best_test_freq: float,
-    best_test_freq_method: CentralTendency,
-    best_test_mag: float,
+    freq_seq: Mapping[Role, Sequence[float]],
+    best_freq: Mapping[Role, float],
+    best_freq_method: Mapping[Role, CentralTendency],
+    best_mag: Mapping[Role, float],
     mag_diff: float,
     best_zero_point: float,
     best_zero_point_method: CentralTendency,
     final_zero_point: float,
-    overlapping_ref_windows: Sequence[float|None],
-    overlapping_test_windows: Sequence[float|None],
+    overlapping_windows: Mapping[Role, Sequence[float | None]],
 ) -> None:
     global controller
     log.info("#" * 72)
     log.info("Session = %s", controller.meas_session.strftime("%Y-%m-%dT%H:%M:%S"))
     log.info("Best ZP        list is %s", zero_point_seq)
-    log.info("Best REF. Freq list is %s", ref_freq_seq)
-    log.info("Best TEST Freq list is %s", test_freq_seq)
+    log.info("Best REF. Freq list is %s", freq_seq[Role.REF])
+    log.info("Best TEST Freq list is %s", freq_seq[Role.TEST])
     log.info(
         "REF. Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f (%s)",
-        best_ref_freq,
-        best_ref_mag,
+        best_freq[Role.REF],
+        best_mag[Role.REF],
         0,
-        best_ref_freq_method,
+        best_freq_method[Role.REF],
     )
     log.info(
         "TEST Best Freq. = %0.3f Hz, Mag. = %0.2f, Diff %0.2f (%s)",
-        best_test_freq,
-        best_test_mag,
+        best_freq[Role.TEST],
+        best_mag[Role.TEST],
         mag_diff,
-        best_test_freq_method,
+        best_freq_method[Role.TEST],
     )
     log.info(
         "Final TEST ZP (%0.2f) = Best ZP (%0.2f) (%s) + ZP offset (%0.2f)",
@@ -156,8 +151,8 @@ def on_summary(
         controller.phot_info[Role.TEST]["zp"],
         final_zero_point,
     )
-    log.info("REF. rounds overlap \u0394T = %s",overlapping_ref_windows)
-    log.info("TEST rounds overlap \u0394T = %s",overlapping_test_windows)
+    log.info("REF. rounds overlap \u0394T = %s", overlapping_windows[Role.REF])
+    log.info("TEST rounds overlap \u0394T = %s", overlapping_windows[Role.TEST])
     log.info("#" * 72)
 
 
