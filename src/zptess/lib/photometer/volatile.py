@@ -12,15 +12,15 @@ import math
 import datetime
 import logging
 import asyncio
+import statistics
+from collections import defaultdict
 
-from typing import Any, Mapping
-
+from typing import Any, Mapping, Sequence
 
 # ---------------------------
 # Third-party library imports
 # ----------------------------
 
-import statistics
 
 from pubsub import pub
 from lica.asyncio.photometer import Role
@@ -80,6 +80,7 @@ class Controller(BaseController):
         self.zp_offset = None
         self.zp_abs = None
         self.author = None
+        self.accum_samples = defaultdict(list)
 
     async def init(self) -> None:
         await super().init()
@@ -161,6 +162,7 @@ class Controller(BaseController):
             stats_per_round = dict()
             for role in self.roles:
                 stats_per_round[role] = self.round_statistics(role)
+                self.accum_samples[role].append(self.ring[role].copy())
             mag_diff = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
             zero_points.append(self.zp_abs + mag_diff)
             stats.append(stats_per_round)
@@ -178,6 +180,19 @@ class Controller(BaseController):
         test_freqs = [stats_pr[Role.TEST][0] for stats_pr in stats]
         self.is_calibrated = True  # So no more buffer filling
         return zero_points, ref_freqs, test_freqs
+
+    def overlapping_windows(self) -> Mapping[Role,Sequence[float|None]]:
+        overlaps = defaultdict(list)
+        for role in self.roles:
+            for i, q in enumerate(self.accum_samples[role]):
+                if i<(self.nrounds-1):
+                    next_q = self.accum_samples[role][i+1]
+                    T = (q[-1]["tstamp"] - next_q[0]["tstamp"]).total_seconds()
+                    T = None if T <= 0 else T
+                    overlaps[role].append(T)
+        return overlaps
+                
+            
 
     async def calibrate(self) -> float:
         """
@@ -205,6 +220,7 @@ class Controller(BaseController):
         best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
         best_test_mag = self.zp_fict - 2.5 * math.log10(best_test_freq)
         mag_diff = -2.5 * math.log10(best_ref_freq / best_test_freq)
+        overlap = self.overlapping_windows()
         summary_info = {
             "zero_point_seq": zero_points,
             "ref_freq_seq": ref_freqs,
@@ -219,6 +235,8 @@ class Controller(BaseController):
             "best_zero_point": best_zero_point,
             "best_zero_point_method": best_zp_method,
             "final_zero_point": final_zero_point,
+            "overlapping_ref_windows": overlap[Role.REF],
+            "overlapping_test_windows": overlap[Role.TEST],
         }
         self.on_summary(summary_info)
         self.on_calib_end()

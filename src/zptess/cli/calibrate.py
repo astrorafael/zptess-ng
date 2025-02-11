@@ -9,6 +9,7 @@
 # -------------------
 
 import logging
+from datetime import timedelta
 from argparse import Namespace, ArgumentParser
 from typing import Sequence
 
@@ -37,6 +38,7 @@ from ..lib import CentralTendency
 
 
 DESCRIPTION = "TESS-W Reader tool"
+HALF_SECOND = timedelta(seconds=0.5)
 
 # -----------------------
 # Module global variables
@@ -83,8 +85,8 @@ def on_round(current: int, mag_diff: float, zero_point: float, stats: RoundStats
         Ti = controller.ring[role][0]["tstamp"]
         Tf = controller.ring[role][-1]["tstamp"]
         T = (Tf - Ti).total_seconds()
-        Ti = Ti.strftime("%H:%M:%S")
-        Tf = Tf.strftime("%H:%M:%S")
+        Ti = (Ti + HALF_SECOND).strftime("%H:%M:%S")
+        Tf = (Tf + HALF_SECOND).strftime("%H:%M:%S")
         N = len(controller.ring[role])
         freq, stdev, mag = stats[role]
         log.info(
@@ -119,6 +121,8 @@ def on_summary(
     best_zero_point: float,
     best_zero_point_method: CentralTendency,
     final_zero_point: float,
+    overlapping_ref_windows: Sequence[float|None],
+    overlapping_test_windows: Sequence[float|None],
 ) -> None:
     global controller
     log.info("#" * 72)
@@ -152,6 +156,8 @@ def on_summary(
         controller.phot_info[Role.TEST]["zp"],
         final_zero_point,
     )
+    log.info("REF. rounds overlap \u0394T = %s",overlapping_ref_windows)
+    log.info("TEST rounds overlap \u0394T = %s",overlapping_test_windows)
     log.info("#" * 72)
 
 
