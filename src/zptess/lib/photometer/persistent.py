@@ -219,25 +219,42 @@ class Controller(VolatileCalibrator):
         return rounds
 
     def do_samples(
-        self, session: AsyncSession, summaries: Dict[Role, Summary], rounds: Dict[Role, List[Round]]
-    ) -> None:
+        self, session: AsyncSession, summaries: Dict[Role, Summary]
+    ) -> Dict[Role, List[Sample]]:
         log.info("A por los samples")
+        samples_db = dict()
         for role, summary in summaries.items():
             # samples = set(item for item in q for q in self.accum_samples[role])
             samples = set()
             for q in self.accum_samples[role]:
                 samples.update(set(UniqueSample(item) for item in q))
-            for sample in samples:
-                s = Sample(
+            samples_db[role] = [
+                Sample(
                     tstamp=sample["tstamp"],
                     role=role,
                     seq=sample["seq"],
                     freq=sample["freq"],
                     temp_box=sample["tamb"],
+                    summary=summary,
                 )
-                s.summary = summary
+                for sample in samples
+            ]
+            for s in samples_db[role]:
                 log.info(s)
                 session.add(s)
+        return samples_db
+
+        # for i, q in enumerate(self.accum_samples[role]):
+        #     for sample in q:
+        #         s = Sample(
+        #             tstamp=sample["tstamp"],
+        #             role=role,
+        #             seq=sample["seq"],
+        #             freq=sample["freq"],
+        #             temp_box=sample["tamb"],
+        #         )
+        #         s.summary = summary
+        #         rounds[role][i].samples.append(s)
 
     async def do_persist(self):
         async with self.Session() as session:
@@ -247,6 +264,6 @@ class Controller(VolatileCalibrator):
                 summary = self.do_summary(session, photometer)
                 log.info(summary)
                 rounds = self.do_rounds(session, summary)
-                self.do_samples(session, summary, rounds)
+                samples = self.do_samples(session, summary)
 
         self.db_active = False
