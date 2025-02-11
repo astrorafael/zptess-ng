@@ -54,6 +54,7 @@ async def log_messages(controller: Controller, role: Role, num: int | None = Non
 
 async def update_zp(controller: Controller, zero_point: float) -> None:
     log = logging.getLogger(Role.TEST.tag())
+    zero_point = round(zero_point,2)
     log.info("Updating ZP : %0.2f", zero_point)
     name = controller.phot_info[Role.TEST]["name"]
     try:
@@ -66,7 +67,7 @@ async def update_zp(controller: Controller, zero_point: float) -> None:
         if zero_point != stored_zp:
             log.critical(
                 "ZP Write verification failed: ZP to Write (%0.3f) "
-                "doesn't match ZP subsequently read (%0.3f). \u0394 = %0.3f",
+                "doesn't match ZP subsequently read (%0.3f). \u0394 = %0.16f",
                 zero_point,
                 stored_zp,
                 zero_point - stored_zp,

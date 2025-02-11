@@ -216,7 +216,6 @@ class Controller(BaseController):
         best_ref_freq_method, best_ref_freq = best(ref_freqs)
         best_test_freq_method, best_test_freq = best(test_freqs)
         final_zero_point = best_zero_point + self.zp_offset
-
         best_ref_mag = self.zp_fict - 2.5 * math.log10(best_ref_freq)
         best_test_mag = self.zp_fict - 2.5 * math.log10(best_test_freq)
         mag_diff = -2.5 * math.log10(best_ref_freq / best_test_freq)
