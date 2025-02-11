@@ -54,6 +54,31 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -----------------
 
 
+# This meant for easy sample de-duplication
+# which are usually shared between rounds
+class UniqueSample(dict):
+    """A hashable subclassed dictionary based on the "tstamp" keyword and value"""
+
+    def __init__(self, *args, **kwargs):
+        self.update(*args, **kwargs)
+
+    def __getitem__(self, key):
+        return dict.__getitem__(self, key)
+
+    def __setitem__(self, key, val):
+        dict.__setitem__(self, key, val)
+
+    def __repr__(self):
+        return "%s(%s)" % (type(self).__name__, dict.__repr__(self))
+
+    def __hash__(self):
+        return int(dict.__getitem__(self, "tstamp").timestamp() * 1000)
+
+    def update(self, *args, **kwargs):
+        for k, v in dict(*args, **kwargs).items():
+            self[k] = v
+
+
 class Controller(VolatileCalibrator):
     """
     Database-based Photometer Calibration Controller
@@ -88,7 +113,6 @@ class Controller(VolatileCalibrator):
                 pass
             elif event == Event.ROUND:
                 self.temp_round_info.append(msg["info"])
-                self.temp_round_samples.append(msg["samples"])
             elif event == Event.SUMMARY:
                 self.temp_summary = msg["info"]
             else:
@@ -112,10 +136,6 @@ class Controller(VolatileCalibrator):
         msg = {
             "event": Event.ROUND,
             "info": round_info,
-            "samples": {
-                Role.REF: self.ring[Role.REF].copy(),
-                Role.TEST: self.ring[Role.TEST].copy(),
-            },
         }
         self.db_queue.put_nowait(msg)
 
@@ -161,15 +181,9 @@ class Controller(VolatileCalibrator):
                 zero_point_method=self.temp_summary["best_zero_point_method"]
                 if role == Role.TEST
                 else None,
-                freq=self.temp_summary["best_ref_freq"]
-                if role == Role.REF
-                else self.temp_summary["best_test_freq"],
-                freq_method=self.temp_summary["best_ref_freq_method"]
-                if role == Role.REF
-                else self.temp_summary["best_test_freq_method"],
-                mag=self.temp_summary["best_ref_mag"]
-                if role == Role.REF
-                else self.temp_summary["best_test_mag"],
+                freq=self.temp_summary["best_freq"][role],
+                freq_method=self.temp_summary["best_freq_method"][role],
+                mag=self.temp_summary["best_mag"][role],
                 nrounds=self.nrounds,
             )
             summary[role].photometer = phot
@@ -178,12 +192,12 @@ class Controller(VolatileCalibrator):
 
     def do_rounds(
         self, session: AsyncSession, summaries: Dict[Role, Photometer]
-    ) -> Dict[Role, List[Photometer]]:
+    ) -> Dict[Role, List[Round]]:
         log.info("A por los rounds")
         rounds = defaultdict(list)
         for i, round_info in enumerate(self.temp_round_info):
             for role, summary in summaries.items():
-                samples = self.temp_round_samples[i][role]
+                samples = self.accum_samples[role][i]
                 r = Round(
                     seq=round_info["current"],
                     role=role,
@@ -204,22 +218,26 @@ class Controller(VolatileCalibrator):
                 session.add(r)
         return rounds
 
-    def do_samples(self, session: AsyncSession, summaries: Dict[Role, Photometer]) -> None:
+    def do_samples(
+        self, session: AsyncSession, summaries: Dict[Role, Summary], rounds: Dict[Role, List[Round]]
+    ) -> None:
         log.info("A por los samples")
-        for i, round_info in enumerate(self.temp_round_info):
-            for role, summary in summaries.items():
-                for sample in self.temp_round_samples[i][role]:
-                    s = Sample(
-                        tstamp = sample["tstamp"],
-                        role = role,
-                        seq = sample["seq"],
-                        freq = sample["freq"],
-                        temp_box =  sample["tamb"]
-                    )
-                    s.summary = summary
-                    log.info(s)
-                    session.add(s)
-        
+        for role, summary in summaries.items():
+            # samples = set(item for item in q for q in self.accum_samples[role])
+            samples = set()
+            for q in self.accum_samples[role]:
+                samples.update(set(UniqueSample(item) for item in q))
+            for sample in samples:
+                s = Sample(
+                    tstamp=sample["tstamp"],
+                    role=role,
+                    seq=sample["seq"],
+                    freq=sample["freq"],
+                    temp_box=sample["tamb"],
+                )
+                s.summary = summary
+                log.info(s)
+                session.add(s)
 
     async def do_persist(self):
         async with self.Session() as session:
@@ -229,6 +247,6 @@ class Controller(VolatileCalibrator):
                 summary = self.do_summary(session, photometer)
                 log.info(summary)
                 rounds = self.do_rounds(session, summary)
-                self.do_samples(session, summary)
+                self.do_samples(session, summary, rounds)
 
         self.db_active = False
