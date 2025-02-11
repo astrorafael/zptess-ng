@@ -53,6 +53,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 # Auxiliary classes
 # -----------------
 
+
 class Controller(VolatileCalibrator):
     """
     Database-based Photometer Calibration Controller
@@ -118,7 +119,7 @@ class Controller(VolatileCalibrator):
         msg = {"event": Event.SUMMARY, "info": summary_info}
         self.db_queue.put_nowait(msg)
 
-    async def do_photometer(self, session: AsyncSession) -> Dict[Role, Photometer]:
+    async def save_photometers(self, session: AsyncSession) -> Dict[Role, Photometer]:
         phot = dict()
         for role in self.roles:
             name = self.phot_info[role]["name"]
@@ -135,13 +136,12 @@ class Controller(VolatileCalibrator):
                 session.add(phot[role])
         return phot
 
-    def do_summary(
+    def save_summaries(
         self, session: AsyncSession, photometers: Dict[Role, Photometer]
     ) -> Dict[Role, Summary]:
-        log.info("A por los sumarios")
-        summary = dict()
+        db_summary = dict()
         for role, phot in photometers.items():
-            summary[role] = Summary(
+            db_summary[role] = Summary(
                 session=self.meas_session,
                 role=role,
                 calibration=Calibration.AUTO,
@@ -159,18 +159,17 @@ class Controller(VolatileCalibrator):
                 freq_method=self.temp_summary["best_freq_method"][role],
                 mag=self.temp_summary["best_mag"][role],
                 nrounds=self.nrounds,
+                photometer=phot,  # This is really a 1:N relationship
             )
-            summary[role].photometer = phot
-            session.add(summary[role])
-        return summary
+            session.add(db_summary[role])
+        return db_summary
 
-    def do_rounds(
-        self, session: AsyncSession, summaries: Dict[Role, Photometer]
+    def save_rounds(
+        self, session: AsyncSession, db_summaries: Dict[Role, Summary]
     ) -> Dict[Role, List[Round]]:
-        log.info("A por los rounds")
-        rounds = defaultdict(list)
+        db_rounds = defaultdict(list)
         for i, round_info in enumerate(self.temp_round_info):
-            for role, summary in summaries.items():
+            for role, summary in db_summaries.items():
                 samples = self.accum_samples[role][i]
                 r = Round(
                     seq=round_info["current"],
@@ -185,24 +184,25 @@ class Controller(VolatileCalibrator):
                     begin_tstamp=samples[0]["tstamp"],
                     end_tstamp=samples[-1]["tstamp"],
                     duration=(samples[-1]["tstamp"] - samples[0]["tstamp"]).total_seconds(),
-                    summary=summary,
+                    summary=summary,  # This is really a 1:N relationship
                 )
-                rounds[role].append(r)
-                log.info(r)
+                db_rounds[role].append(r)
+                log.debug(r)
                 session.add(r)
-        return rounds
+        return db_rounds
 
-    def do_samples(
-        self, session: AsyncSession, summaries: Dict[Role, Summary]
-    ) -> Dict[Role, List[Sample]]:
-        log.info("A por los samples")
-        samples_db = dict()
-        for role, summary in summaries.items():
-            # samples = set(item for item in q for q in self.accum_samples[role])
-            samples = set()
+    def save_samples(
+        self,
+        session: AsyncSession,
+        db_summaries: Dict[Role, Summary],
+        db_rounds: Dict[Role, List[Round]],
+    ) -> None:
+        db_samples = dict()
+        samples = defaultdict(set)
+        for role, summary in db_summaries.items():
             for q in self.accum_samples[role]:
-                samples.update(set(q))
-            samples_db[role] = [
+                samples[role].update(set(q))
+            db_samples[role] = [
                 Sample(
                     tstamp=sample["tstamp"],
                     role=role,
@@ -211,30 +211,29 @@ class Controller(VolatileCalibrator):
                     temp_box=sample["tamb"],
                     summary=summary,
                 )
-                for sample in samples
+                for sample in samples[role]
             ]
-            for s in samples_db[role]:
-                log.info(s)
+            # Adding the database sample objects to the summary
+            for s in db_samples[role]:
+                log.debug(s)
                 session.add(s)
-        return samples_db
-
-    def do_samples_to_rounds(
-        self,
-        session: AsyncSession,
-        rounds: Dict[Role, List[Round]],
-        samples: Dict[Role, List[Sample]],
-    ) -> None:
-        pass
+        # Now assign the samples to the corresponding round
+        # The final list of unique samples is tested against the list of round samples
+        # and added to the database round object if so.
+        # A bit tricky (3-level for loop)
+        for role in self.roles:
+            for sample, db_sample in zip(samples[role], db_samples[role]):
+                for i, db_round in enumerate(db_rounds[role]):
+                    if sample in self.accum_samples[role][i]:
+                        db_round.samples.append(db_sample)
 
     async def do_persist(self):
         async with self.Session() as session:
             async with session.begin():
-                photometer = await self.do_photometer(session)
-                log.info(photometer)
-                summary = self.do_summary(session, photometer)
-                log.info(summary)
-                rounds = self.do_rounds(session, summary)
-                samples = self.do_samples(session, summary)
-                self.do_samples_to_rounds(session, rounds, samples)
-
+                db_photometers = await self.save_photometers(session)
+                log.debug(db_photometers)
+                db_summaries = self.save_summaries(session, db_photometers)
+                log.debug(db_summaries)
+                db_rounds = self.save_rounds(session, db_summaries)
+                self.save_samples(session, db_summaries, db_rounds)
         self.db_active = False
