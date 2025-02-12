@@ -87,11 +87,12 @@ class Controller(VolatileCalibrator):
             updated = True
         async with self.Session() as session:
             async with session.begin():
-                log.info("Setting upd_flag in summary database to %s", updated)
                 q = select(Summary).where(Summary.session == self.meas_session)
                 db_summaries = (await session.scalars(q)).all()
                 for db_summary in db_summaries:
                     db_summary.upd_flag = False if db_summary.role == Role.REF else updated
+                    if not updated:
+                        db_summary.comment = f"{self.phot_info[Role.TEST]['name']} not updated because of HTTP Timeout"
         return stored_zero_point
 
     async def db_writer(self) -> None:
