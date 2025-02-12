@@ -81,6 +81,7 @@ class Controller(BaseController):
         self.zp_abs = None
         self.author = None
         self.accum_samples = defaultdict(list)
+        self.time_intervals = defaultdict(list)
 
     async def init(self) -> None:
         await super().init()
@@ -167,6 +168,7 @@ class Controller(BaseController):
             for role in self.roles:
                 stats_per_round[role] = self.round_statistics(role)
                 self.accum_samples[role].append(self.ring[role].copy())
+                self.time_intervals[role].append(self.ring[role].intervals()) 
             mag_diff = stats_per_round[Role.REF][2] - stats_per_round[Role.TEST][2]
             zero_points.append(self.zp_abs + mag_diff)
             stats.append(stats_per_round)
@@ -177,6 +179,8 @@ class Controller(BaseController):
                 "stats": stats_per_round,
             }
             self.on_round(round_info)
+           
+
             if i != self.nrounds - 1:
                 await asyncio.sleep(self.period)
         zero_points = [round(zp, 2) for zp in zero_points]
@@ -188,10 +192,10 @@ class Controller(BaseController):
     def overlapping_windows(self) -> Mapping[Role, Sequence[float | None]]:
         overlaps = defaultdict(list)
         for role in self.roles:
-            for i, q in enumerate(self.accum_samples[role]):
+            for i, t in enumerate(self.time_intervals[role]):
                 if i < (self.nrounds - 1):
-                    next_q = self.accum_samples[role][i + 1]
-                    T = (q[-1]["tstamp"] - next_q[0]["tstamp"]).total_seconds()
+                    next_t = self.time_intervals[role][i + 1]
+                    T = (t[1] - next_t[0]).total_seconds()
                     T = None if T <= 0 else T
                     overlaps[role].append(T)
         return overlaps

@@ -188,6 +188,7 @@ class Controller(VolatileCalibrator):
         for i, round_info in enumerate(self.temp_round_info):
             for role, summary in db_summaries.items():
                 samples = self.accum_samples[role][i]
+                tstamps = self.time_intervals[role][i]
                 r = Round(
                     seq=round_info["current"],
                     role=role,
@@ -198,9 +199,9 @@ class Controller(VolatileCalibrator):
                     zp_fict=self.zp_fict,
                     zero_point=round_info["zero_point"] if role == Role.TEST else None,
                     nsamples=len(samples),
-                    begin_tstamp=samples[0]["tstamp"],
-                    end_tstamp=samples[-1]["tstamp"],
-                    duration=(samples[-1]["tstamp"] - samples[0]["tstamp"]).total_seconds(),
+                    begin_tstamp=tstamps[0],
+                    end_tstamp=tstamps[1],
+                    duration=(tstamps[1] - tstamps[0]).total_seconds(),
                     summary=summary,  # This is really a 1:N relationship
                 )
                 db_rounds[role].append(r)
@@ -220,7 +221,7 @@ class Controller(VolatileCalibrator):
         # dispersed in the rounds
         for role, summary in db_summaries.items():
             for q in self.accum_samples[role]:
-                samples[role].update(set(q))
+                samples[role].update(q)
             db_samples[role] = [
                 Sample(
                     tstamp=sample["tstamp"],

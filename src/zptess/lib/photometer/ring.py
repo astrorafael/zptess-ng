@@ -11,7 +11,8 @@
 import logging
 import statistics
 import collections
-from typing import Tuple, Mapping, Sequence, Any
+from datetime import datetime
+from typing import Tuple, Mapping, Set, Any
 
 # -------------------
 # Third party imports
@@ -97,8 +98,11 @@ class RingBuffer:
     def append(self, item: Message) -> None:
         self._buffer.append(item)
 
-    def copy(self) -> Sequence[Message]:
-        return tuple(UniqueReading(item) for item in self._buffer)
+    def copy(self) -> Set[Message]:
+        return set(UniqueReading(item) for item in self._buffer)
+
+    def intervals(self) -> Tuple[datetime, datetime]:
+            return self._buffer[0]["tstamp"], self._buffer[-1]["tstamp"]
 
     def statistics(self) -> Tuple[float, float]:
         frequencies = tuple(item["freq"] for item in self._buffer)
