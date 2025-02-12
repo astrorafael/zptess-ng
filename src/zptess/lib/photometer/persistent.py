@@ -94,7 +94,6 @@ class Controller(VolatileCalibrator):
                     db_summary.upd_flag = False if db_summary.role == Role.REF else updated
         return stored_zero_point
 
-
     async def db_writer(self) -> None:
         self.db_active = True
         self.temp_round_info = list()
@@ -213,9 +212,11 @@ class Controller(VolatileCalibrator):
         session: AsyncSession,
         db_summaries: Dict[Role, Summary],
         db_rounds: Dict[Role, List[Round]],
-    ) -> None:
+    ) -> Dict[Role, List[Sample]]:
         db_samples = dict()
         samples = defaultdict(set)
+        # This double loop accumulate unique samples
+        # dispersed in the rounds
         for role, summary in db_summaries.items():
             for q in self.accum_samples[role]:
                 samples[role].update(set(q))
@@ -243,22 +244,28 @@ class Controller(VolatileCalibrator):
                 for i, db_round in enumerate(db_rounds[role]):
                     if sample in self.accum_samples[role][i]:
                         db_round.samples.append(db_sample)
+        return db_samples
 
     async def do_persist(self):
         async with self.Session() as session:
             async with session.begin():
                 db_photometers = await self.save_photometers(session)
+                log.info("Saving %d photometer entries", len(db_photometers))
                 log.debug(db_photometers)
                 db_summaries = self.save_summaries(session, db_photometers)
+                log.info("Saving %d summary entries", len(db_summaries))
                 log.debug(db_summaries)
                 db_rounds = self.save_rounds(session, db_summaries)
-                self.save_samples(session, db_summaries, db_rounds)
+                log.info("Saving %d %s round entries", len(db_rounds[Role.REF]), Role.REF)
+                log.info("Saving %d %s round entries", len(db_rounds[Role.TEST]), Role.TEST)
+                db_samples = self.save_samples(session, db_summaries, db_rounds)
+                log.info("Saving %d %s sample entries", len(db_samples[Role.REF]), Role.REF)
+                log.info("Saving %d %s sample entries", len(db_samples[Role.TEST]), Role.TEST)
         self.db_active = False
 
     async def not_updated(self, zero_point: float, msg: str):
         async with self.Session() as session:
             async with session.begin():
-                log.info("Setting upd_flag in summary database to %s", False)
                 q = select(Summary).where(Summary.session == self.meas_session)
                 db_summaries = (await session.scalars(q)).all()
                 for db_summary in db_summaries:
