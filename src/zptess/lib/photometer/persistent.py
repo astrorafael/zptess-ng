@@ -254,3 +254,13 @@ class Controller(VolatileCalibrator):
                 db_rounds = self.save_rounds(session, db_summaries)
                 self.save_samples(session, db_summaries, db_rounds)
         self.db_active = False
+
+    async def not_updated(self, zero_point: float, msg: str):
+        async with self.Session() as session:
+            async with session.begin():
+                log.info("Setting upd_flag in summary database to %s", False)
+                q = select(Summary).where(Summary.session == self.meas_session)
+                db_summaries = (await session.scalars(q)).all()
+                for db_summary in db_summaries:
+                    db_summary.upd_flag = False
+                    db_summary.comment = msg

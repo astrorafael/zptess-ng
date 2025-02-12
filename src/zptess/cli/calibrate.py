@@ -211,9 +211,14 @@ async def cli_calib_test(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.dry_run:
         log.info("Dry run. Will stop here ...")
-    else:
-        final_zero_point = await controller.calibrate()
+        return
+    final_zero_point = await controller.calibrate()
+    if args.update:
         await update_zp(controller, final_zero_point)
+    else:
+        msg = f"Zero Point {final_zero_point:.2f} not saved to {Role.TEST} {controller.phot_info[Role.TEST]['name']}"
+        log.info(msg)
+        await controller.not_updated(final_zero_point, msg)
 
 
 # -----------------

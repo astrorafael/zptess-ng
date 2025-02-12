@@ -141,6 +141,9 @@ class Controller(BaseController):
     def on_summary(self, summary_info: Mapping[str, Any]) -> None:
         pub.sendMessage(Event.SUMMARY, **summary_info)
 
+    async def not_updated(self, zero_point: float, msg: str):
+        pass
+
     def round_statistics(self, role: Role) -> RoundStatistics:
         log = logging.getLogger(role.tag())
         freq_offset = self.phot_info[role]["freq_offset"]
@@ -211,13 +214,13 @@ class Controller(BaseController):
         (zero_points, freqs), _, _ = await asyncio.gather(self.statistics(), *self.producer)
         best_zp_method, best_zero_point = best(zero_points)
         best_freq = dict()
-        best_freq_method =dict()
+        best_freq_method = dict()
         best_mag = dict()
         for role in self.roles:
             best_freq_method[role], best_freq[role] = best(freqs[role])
             best_mag[role] = self.zp_fict - 2.5 * math.log10(best_freq[role])
         final_zero_point = best_zero_point + self.zp_offset
-        mag_diff = -2.5 * math.log10(best_freq[Role.REF] /best_freq[Role.TEST])
+        mag_diff = -2.5 * math.log10(best_freq[Role.REF] / best_freq[Role.TEST])
         overlap = self.overlapping_windows()
         summary_info = {
             "zero_point_seq": zero_points,
@@ -230,7 +233,6 @@ class Controller(BaseController):
             "best_zero_point_method": best_zp_method,
             "final_zero_point": final_zero_point,
             "overlapping_windows": overlap,
-          
         }
         self.on_summary(summary_info)
         self.on_calib_end()
