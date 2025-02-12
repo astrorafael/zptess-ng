@@ -118,7 +118,8 @@ aload stage="photometer" folder="migra":
 calib persist="" verbose="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    zp-calib --console {{verbose}} test -b 9 -R 3 -P 5 {{persist}}
+    cp zptess.db zptess-prudb.db
+    uv run zp-calib --console {{verbose}} test -b 9 -R 3 -P 5 {{persist}}
 
 [private]
 db-restore:

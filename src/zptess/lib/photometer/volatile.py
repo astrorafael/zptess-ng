@@ -112,9 +112,14 @@ class Controller(BaseController):
             self.zp_abs = float(await self._load(session, "ref-device", "zp"))
         self.persist = self.common_param["persist"]
         self.update = self.common_param["update"]
-        for role in self.roles:
-            self.ring[role] = RingBuffer(capacity=self.capacity, central=self.central)
-            self.task[role] = asyncio.create_task(self.photometer[role].readings())
+        try:
+                for role in self.roles:
+                    self.ring[role] = RingBuffer(capacity=self.capacity, central=self.central)
+                    self.task[role] = asyncio.create_task(self.photometer[role].readings())
+        except* Exception as eg:
+            for e in eg.exceptions:
+                log.error(e)
+            raise eg.exceptions[0]
 
     async def producer_task(self, role: Role) -> None:
         while not self.is_calibrated:
@@ -179,8 +184,6 @@ class Controller(BaseController):
                 "stats": stats_per_round,
             }
             self.on_round(round_info)
-           
-
             if i != self.nrounds - 1:
                 await asyncio.sleep(self.period)
         zero_points = [round(zp, 2) for zp in zero_points]
@@ -200,22 +203,7 @@ class Controller(BaseController):
                     overlaps[role].append(T)
         return overlaps
 
-    async def calibrate(self) -> float:
-        """
-        Calibrate the Trst photometer against the Reference Photometer
-        and return the final Zero Point to Write to the Test Photometer
-        """
-        self.on_calib_start()
-        coros = [self.fill_buffer(role) for role in self.roles]
-        # Waiting for both circular buffers to be filled
-        await asyncio.gather(*coros)
-        self.producer = [None, None]
-        # background task that fill the circular buffers while we perform
-        # the calibratu¡ion rounds
-        self.producer[Role.REF] = asyncio.create_task(self.producer_task(Role.REF))
-        self.producer[Role.TEST] = asyncio.create_task(self.producer_task(Role.TEST))
-        self.is_calibrated = False
-        (zero_points, freqs), _, _ = await asyncio.gather(self.statistics(), *self.producer)
+    def _post_statistics(self, zero_points, freqs) -> float:
         best_zp_method, best_zero_point = best(zero_points)
         best_freq = dict()
         best_freq_method = dict()
@@ -239,5 +227,31 @@ class Controller(BaseController):
             "overlapping_windows": overlap,
         }
         self.on_summary(summary_info)
+        return final_zero_point
+
+    async def calibrate(self) -> float:
+        """
+        Calibrate the Trst photometer against the Reference Photometer
+        and return the final Zero Point to Write to the Test Photometer
+        """
+        self.on_calib_start()
+        # Waiting for both circular buffers to be filled
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for role in self.roles:
+                    tg.create_task(self.fill_buffer(role))
+        except* Exception as eg:
+            log.error(eg.exceptions)
+        # launch the background buffer filling task and the stats task
+        try:
+            self.is_calibrated = False
+            async with asyncio.TaskGroup() as tg:
+                for role in self.roles:
+                    tg.create_task(self.producer_task(role))
+                stat_task = tg.create_task(self.statistics())
+        except* Exception as eg:
+            log.error(eg.exceptions)
+        zero_points, freqs = stat_task.result()
+        final_zero_point = self._post_statistics(zero_points, freqs)
         self.on_calib_end()
         return final_zero_point

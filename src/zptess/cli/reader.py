@@ -120,10 +120,12 @@ async def cli_read_both(args: Namespace) -> None:
     await log_phot_info(controller, Role.TEST)
     if args.dry_run:
         return
-    await asyncio.gather(
-        log_messages(controller, Role.REF, args.num_messages),
-        log_messages(controller, Role.TEST, args.num_messages),
-    )
+    try:
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(log_messages(controller, Role.REF, args.num_messages))
+            tg.create_task(log_messages(controller, Role.TEST, args.num_messages))
+    except* Exception as eg:
+        log,info(eg.exceptions)
 
 
 # -----------------
