@@ -114,7 +114,7 @@ class Controller(BaseController):
         self.update = self.common_param["update"]
         for role in self.roles:
             self.ring[role] = RingBuffer(capacity=self.capacity, central=self.central)
-            self.phot_task[role] = asyncio.create_task(self.photometer[role].readings())
+        await self.launch_phot_tasks()
        
 
     async def producer_task(self, role: Role) -> None:
@@ -122,7 +122,7 @@ class Controller(BaseController):
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
 
-    async def fill_buffer(self, role: Role) -> None:
+    async def fill_buffer_task(self, role: Role) -> None:
         while len(self.ring[role]) < self.capacity:
             msg = await self.photometer[role].queue.get()
             self.ring[role].append(msg)
@@ -235,7 +235,7 @@ class Controller(BaseController):
         try:
             async with asyncio.TaskGroup() as tg:
                 for role in self.roles:
-                    tg.create_task(self.fill_buffer(role))
+                    tg.create_task(self.fill_buffer_task(role))
         except* Exception as eg:
             log.error(eg.exceptions)
         # launch the background buffer filling task and the stats task
