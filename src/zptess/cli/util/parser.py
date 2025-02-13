@@ -128,6 +128,7 @@ def wrzp() -> ArgumentParser:
 def nmsg() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
+        "-N",
         "--num-messages",
         type=int,
         metavar="<N>",
