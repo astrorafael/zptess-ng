@@ -70,7 +70,7 @@ class Controller(VolatileCalibrator):
 
     async def init(self) -> None:
         await super().init()
-        self.db_task = asyncio.create_task(self.db_writer())
+        self.db_task = asyncio.create_task(self.db_writer_task())
 
     async def calibrate(self) -> float:
         zp = await super().calibrate()
@@ -95,7 +95,7 @@ class Controller(VolatileCalibrator):
                         db_summary.comment = f"{self.phot_info[Role.TEST]['name']} not updated because of HTTP Timeout"
         return stored_zero_point
 
-    async def db_writer(self) -> None:
+    async def db_writer_task(self) -> None:
         self.db_active = True
         self.temp_round_info = list()
         self.temp_round_samples = list()
