@@ -71,5 +71,4 @@ class Controller(BaseController):
         await super().init()
         for role in self.roles:
             self.ring[role] = RingBuffer(capacity=1)
-            self.task[role] = asyncio.create_task(self.photometer[role].readings())
-
+        await self.launch_phot_tasks()

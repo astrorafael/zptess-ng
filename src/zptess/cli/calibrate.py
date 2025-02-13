@@ -227,7 +227,7 @@ async def cli_calib_test(args: Namespace) -> None:
 
 
 def add_args(parser: ArgumentParser):
-    subparser = parser.add_subparsers(dest="command")
+    subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
         "test",
         parents=[

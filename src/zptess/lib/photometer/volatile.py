@@ -112,14 +112,10 @@ class Controller(BaseController):
             self.zp_abs = float(await self._load(session, "ref-device", "zp"))
         self.persist = self.common_param["persist"]
         self.update = self.common_param["update"]
-        try:
-                for role in self.roles:
-                    self.ring[role] = RingBuffer(capacity=self.capacity, central=self.central)
-                    self.task[role] = asyncio.create_task(self.photometer[role].readings())
-        except* Exception as eg:
-            for e in eg.exceptions:
-                log.error(e)
-            raise eg.exceptions[0]
+        for role in self.roles:
+            self.ring[role] = RingBuffer(capacity=self.capacity, central=self.central)
+            self.phot_task[role] = asyncio.create_task(self.photometer[role].readings())
+       
 
     async def producer_task(self, role: Role) -> None:
         while not self.is_calibrated:

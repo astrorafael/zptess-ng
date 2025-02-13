@@ -115,17 +115,19 @@ async def cli_read_both(args: Namespace) -> None:
         ref_params=ref_params,
         test_params=test_params,
     )
-    await controller.init()
-    await log_phot_info(controller, Role.REF)
-    await log_phot_info(controller, Role.TEST)
-    if args.dry_run:
-        return
     try:
+        await controller.init()
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(log_phot_info(controller, Role.REF))
+            tg.create_task(log_phot_info(controller, Role.TEST))
+        if args.dry_run:
+            return
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_messages(controller, Role.REF, args.num_messages))
             tg.create_task(log_messages(controller, Role.TEST, args.num_messages))
     except* Exception as eg:
-        log,info(eg.exceptions)
+        for e in eg.exceptions:
+            log.error(e)
 
 
 # -----------------
@@ -134,7 +136,7 @@ async def cli_read_both(args: Namespace) -> None:
 
 
 def add_args(parser: ArgumentParser):
-    subparser = parser.add_subparsers(dest="command")
+    subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
         "ref", parents=[prs.dry(), prs.nmsg(), prs.ref()], help="Read reference photometer"
     )

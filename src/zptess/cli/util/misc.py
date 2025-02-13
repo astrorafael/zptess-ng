@@ -60,19 +60,19 @@ async def update_zp(controller: Controller, zero_point: float) -> None:
     try:
         stored_zp = await controller.write_zp(zero_point)
     except asyncio.exceptions.TimeoutError:
-        log.critical("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
+        log.error("[%s] Failed contacting %s photometer", name, Role.TEST.tag())
     except Exception as e:
         log.exception(e)
     else:
         if stored_zp is None:
-            log.critical(
+            log.error(
                 "ZP Write verification failed: ZP to Write (%0.3f) "
                 "doesn't match ZP subsequently read (%s). \u0394 = ?",
                 zero_point,
                 stored_zp,
             )
         elif stored_zp is None or zero_point != stored_zp:
-            log.critical(
+            log.error(
                 "ZP Write verification failed: ZP to Write (%0.3f) "
                 "doesn't match ZP subsequently read (%0.3f). \u0394 = %0.16f",
                 zero_point,

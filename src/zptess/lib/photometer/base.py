@@ -72,7 +72,7 @@ class Controller(ABC):
         self.photometer = dict()
         self.ring = dict()
         self.phot_info = dict()
-        self.task = dict()
+        self.phot_task = dict()
         if ref_params is not None:
             self.roles.append(Role.REF)
         if test_params is not None:
@@ -122,10 +122,10 @@ class Controller(ABC):
         try:
             phot_info = await self.photometer[role].get_info()
         except asyncio.exceptions.TimeoutError:
-            log.critical("Failed contacting %s photometer", role.tag())
+            log.error("Failed contacting %s photometer", role.tag())
             raise
         except Exception as e:
-            log.critical(e)
+            log.error(e)
             raise
         else:
             phot_info["endpoint"] = role.endpoint()
@@ -134,6 +134,25 @@ class Controller(ABC):
             phot_info["freq_offset"] = float(v)
             self.phot_info[role] = phot_info
             return phot_info
+    
+    async def launch_phot_tasks(self):
+        for role in self.roles:
+            self.phot_task[role] = asyncio.create_task(self.phot_receive_task(role), name=f"PHOT {role.tag()} TASK")
+            await asyncio.sleep(0) # wait for it to be scheduled
+            if self.phot_task[role].done():
+                raise RuntimeError(f"Background task {self.phot_task[role].get_name()} is not running")
+
+    async def phot_receive_task(self, role):
+        """The background, long live photometer reading tasks that feed the queue"""
+        log = logging.getLogger(role.tag())
+        try:
+            await self.photometer[role].readings() # Endless loop inside
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            log.error("%s: %s", e.__class__.__name__, e)
+        else:
+            pass
 
     async def receive(
         self, role: Role, num_messages: int | None = None
