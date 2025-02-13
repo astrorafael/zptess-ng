@@ -68,6 +68,10 @@ class Controller(VolatileCalibrator):
         super().__init__(ref_params, test_params, common_params)
         self.db_queue = asyncio.Queue()
 
+    # ==========
+    # Public API
+    # ==========
+
     async def init(self) -> None:
         await super().init()
         self.db_task = asyncio.create_task(self.db_writer_task())
@@ -95,6 +99,53 @@ class Controller(VolatileCalibrator):
                         db_summary.comment = f"{self.phot_info[Role.TEST]['name']} not updated because of HTTP Timeout"
         return stored_zero_point
 
+    async def not_updated(self, zero_point: float, msg: str):
+        """What to do when the Zero Point is not updated by the client code"""
+        async with self.Session() as session:
+            async with session.begin():
+                q = select(Summary).where(Summary.session == self.meas_session)
+                db_summaries = (await session.scalars(q)).all()
+                for db_summary in db_summaries:
+                    db_summary.upd_flag = False
+                    db_summary.comment = msg
+
+    # ===========
+    # Private API
+    # ===========
+
+    # --------------------
+    # Hooks implementation
+    # --------------------
+
+    def _on_calib_start(self) -> None:
+        pub.sendMessage(Event.CAL_START)
+        msg = {"event": Event.CAL_START, "info": None}
+        self.db_queue.put_nowait(msg)
+
+    def _on_calib_end(self) -> None:
+        pub.sendMessage(Event.CAL_END)
+        msg = {"event": Event.CAL_END, "info": None}
+        self.db_queue.put_nowait(msg)
+
+    def _on_round(self, round_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.ROUND, **round_info)
+        # We must copy the sequence of samples of a given round
+        # since the background filling tasks are active
+        msg = {
+            "event": Event.ROUND,
+            "info": round_info,
+        }
+        self.db_queue.put_nowait(msg)
+
+    def _on_summary(self, summary_info: Mapping[str, Any]) -> None:
+        pub.sendMessage(Event.SUMMARY, **summary_info)
+        msg = {"event": Event.SUMMARY, "info": summary_info}
+        self.db_queue.put_nowait(msg)
+
+    # ----------------------------------
+    # Coroutines to be turned into Tasks
+    # ----------------------------------
+
     async def db_writer_task(self) -> None:
         self.db_active = True
         self.temp_round_info = list()
@@ -109,35 +160,13 @@ class Controller(VolatileCalibrator):
             elif event == Event.SUMMARY:
                 self.temp_summary = msg["info"]
             else:
-                await self.do_persist()
-        log.info("Database listener ends here")
+                await self._save_all()
 
-    def on_calib_start(self) -> None:
-        pub.sendMessage(Event.CAL_START)
-        msg = {"event": Event.CAL_START, "info": None}
-        self.db_queue.put_nowait(msg)
+    # ----------------------
+    # Private helper methods
+    # ----------------------
 
-    def on_calib_end(self) -> None:
-        pub.sendMessage(Event.CAL_END)
-        msg = {"event": Event.CAL_END, "info": None}
-        self.db_queue.put_nowait(msg)
-
-    def on_round(self, round_info: Mapping[str, Any]) -> None:
-        pub.sendMessage(Event.ROUND, **round_info)
-        # We must copy the sequence of samples of a given round
-        # since the background filling tasks are active
-        msg = {
-            "event": Event.ROUND,
-            "info": round_info,
-        }
-        self.db_queue.put_nowait(msg)
-
-    def on_summary(self, summary_info: Mapping[str, Any]) -> None:
-        pub.sendMessage(Event.SUMMARY, **summary_info)
-        msg = {"event": Event.SUMMARY, "info": summary_info}
-        self.db_queue.put_nowait(msg)
-
-    async def save_photometers(self, session: AsyncSession) -> Dict[Role, Photometer]:
+    async def _save_photometers(self, session: AsyncSession) -> Dict[Role, Photometer]:
         phot = dict()
         for role in self.roles:
             name = self.phot_info[role]["name"]
@@ -153,7 +182,7 @@ class Controller(VolatileCalibrator):
                 session.add(phot[role])
         return phot
 
-    def save_summaries(
+    def _save_summaries(
         self, session: AsyncSession, photometers: Dict[Role, Photometer]
     ) -> Dict[Role, Summary]:
         db_summary = dict()
@@ -181,7 +210,7 @@ class Controller(VolatileCalibrator):
             session.add(db_summary[role])
         return db_summary
 
-    def save_rounds(
+    def _save_rounds(
         self, session: AsyncSession, db_summaries: Dict[Role, Summary]
     ) -> Dict[Role, List[Round]]:
         db_rounds = defaultdict(list)
@@ -209,7 +238,7 @@ class Controller(VolatileCalibrator):
                 session.add(r)
         return db_rounds
 
-    def save_samples(
+    def _save_samples(
         self,
         session: AsyncSession,
         db_summaries: Dict[Role, Summary],
@@ -248,28 +277,19 @@ class Controller(VolatileCalibrator):
                         db_round.samples.append(db_sample)
         return db_samples
 
-    async def do_persist(self):
+    async def _save_all(self):
         async with self.Session() as session:
             async with session.begin():
-                db_photometers = await self.save_photometers(session)
+                db_photometers = await self._save_photometers(session)
                 log.info("Saving %d photometer entries", len(db_photometers))
                 log.debug(db_photometers)
-                db_summaries = self.save_summaries(session, db_photometers)
+                db_summaries = self._save_summaries(session, db_photometers)
                 log.info("Saving %d summary entries", len(db_summaries))
                 log.debug(db_summaries)
-                db_rounds = self.save_rounds(session, db_summaries)
+                db_rounds = self._save_rounds(session, db_summaries)
                 log.info("Saving %d %s round entries", len(db_rounds[Role.REF]), Role.REF)
                 log.info("Saving %d %s round entries", len(db_rounds[Role.TEST]), Role.TEST)
-                db_samples = self.save_samples(session, db_summaries, db_rounds)
+                db_samples = self._save_samples(session, db_summaries, db_rounds)
                 log.info("Saving %d %s sample entries", len(db_samples[Role.REF]), Role.REF)
                 log.info("Saving %d %s sample entries", len(db_samples[Role.TEST]), Role.TEST)
         self.db_active = False
-
-    async def not_updated(self, zero_point: float, msg: str):
-        async with self.Session() as session:
-            async with session.begin():
-                q = select(Summary).where(Summary.session == self.meas_session)
-                db_summaries = (await session.scalars(q)).all()
-                for db_summary in db_summaries:
-                    db_summary.upd_flag = False
-                    db_summary.comment = msg

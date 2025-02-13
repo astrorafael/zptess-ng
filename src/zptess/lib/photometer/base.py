@@ -59,6 +59,7 @@ log = logging.getLogger(__name__.split(".")[-1])
 class Controller(ABC):
     """
     Reader Controller specialized in reading the photometers
+    Serves ans an interface and a base class at the same tine.
     """
 
     def __init__(
@@ -78,13 +79,12 @@ class Controller(ABC):
         if test_params is not None:
             self.roles.append(Role.TEST)
 
+    # ==========
+    # Public API
+    # ==========
+
     def buffer(self, role: Role):
         return self.ring[role]
-
-    async def _load(self, session: AsyncSessionClass, section: str, prop: str) -> str | None:
-        async with session:
-            q = select(Config.value).where(Config.section == section, Config.prop == prop)
-            return (await session.scalars(q)).one_or_none()
 
     async def init(self) -> None:
         log.info(
@@ -95,27 +95,22 @@ class Controller(ABC):
         builder = PhotometerBuilder(engine)  # For the reference photometer using database info
         async with self.Session() as session:
             for role in self.roles:
-                val_db = await self._load(session, SECTION[role], "model")
+                val_db = await self._load_config(session, SECTION[role], "model")
                 val_arg = self.param[role]["model"]
                 self.param[role]["model"] = val_arg if val_arg is not None else PhotModel(val_db)
-                val_db = await self._load(session, SECTION[role], "sensor")
+                val_db = await self._load_config(session, SECTION[role], "sensor")
                 val_arg = self.param[role]["sensor"]
                 self.param[role]["sensor"] = val_arg if val_arg is not None else Sensor(val_db)
-                val_db = await self._load(session, SECTION[role], "old-proto")
+                val_db = await self._load_config(session, SECTION[role], "old-proto")
                 val_arg = self.param[role]["old_proto"]
                 self.param[role]["old_proto"] = val_arg if val_arg is not None else bool(val_db)
-                val_db = await self._load(session, SECTION[role], "endpoint")
+                val_db = await self._load_config(session, SECTION[role], "endpoint")
                 val_arg = self.param[role]["endpoint"]
                 self.param[role]["endpoint"] = val_arg if val_arg is not None else val_db
                 self.photometer[role] = builder.build(
                     self.param[role]["model"], role, self.param[role]["endpoint"]
                 )
                 logging.getLogger(str(role)).setLevel(self.param[role]["log_level"])
-
-    @abstractmethod
-    async def calibrate(self) -> float:
-        """Calibrate the test photometer against the refrence photometer retirnoing a Zero Point"""
-        pass
 
     async def info(self, role: Role) -> Dict[str, str]:
         log = logging.getLogger(role.tag())
@@ -134,25 +129,6 @@ class Controller(ABC):
             phot_info["freq_offset"] = float(v)
             self.phot_info[role] = phot_info
             return phot_info
-    
-    async def launch_phot_tasks(self):
-        for role in self.roles:
-            self.phot_task[role] = asyncio.create_task(self.phot_receive_task(role), name=f"PHOT {role.tag()} TASK")
-            await asyncio.sleep(0) # wait for it to be scheduled
-            if self.phot_task[role].done():
-                raise RuntimeError(f"Background task {self.phot_task[role].get_name()} is not running")
-
-    async def phot_receive_task(self, role):
-        """The background, long live photometer reading tasks that feed the queue"""
-        log = logging.getLogger(role.tag())
-        try:
-            await self.photometer[role].readings() # Endless loop inside
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            log.error("%s: %s", e.__class__.__name__, e)
-        else:
-            pass
 
     async def receive(
         self, role: Role, num_messages: int | None = None
@@ -172,3 +148,48 @@ class Controller(ABC):
         await self.photometer[Role.TEST].save_zero_point(zero_point)
         stored_zero_point = (await self.photometer[Role.TEST].get_info())["zp"]
         return stored_zero_point
+
+    @abstractmethod
+    async def calibrate(self) -> float:
+        """Calibrate the test photometer against the refrence photometer returnoing a Zero Point"""
+        pass
+
+    # ===========
+    # Private API
+    # ===========
+
+    # ----------------------------------
+    # Coroutines to be turned into Tasks
+    # ----------------------------------
+
+    async def _phot_receive_task(self, role):
+        """The background, long live photometer reading tasks that feed the queue"""
+        log = logging.getLogger(role.tag())
+        try:
+            await self.photometer[role].readings()  # Endless loop inside
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            log.error("%s: %s", e.__class__.__name__, e)
+        else:
+            pass
+
+    # ----------------------
+    # Private helper methods
+    # ----------------------
+
+    async def _load_config(self, session: AsyncSessionClass, section: str, prop: str) -> str | None:
+        async with session:
+            q = select(Config.value).where(Config.section == section, Config.prop == prop)
+            return (await session.scalars(q)).one_or_none()
+
+    async def _launch_phot_tasks(self):
+        for role in self.roles:
+            self.phot_task[role] = asyncio.create_task(
+                self._phot_receive_task(role), name=f"PHOT {role.tag()} TASK"
+            )
+            await asyncio.sleep(0)  # wait for it to be scheduled
+            if self.phot_task[role].done():
+                raise RuntimeError(
+                    f"Background task {self.phot_task[role].get_name()} is not running"
+                )

@@ -9,7 +9,6 @@
 # -------------------
 
 import logging
-import asyncio
 from typing import Mapping, Any
 
 # ---------------------------
@@ -71,4 +70,4 @@ class Controller(BaseController):
         await super().init()
         for role in self.roles:
             self.ring[role] = RingBuffer(capacity=1)
-        await self.launch_phot_tasks()
+        await self._launch_phot_tasks()
