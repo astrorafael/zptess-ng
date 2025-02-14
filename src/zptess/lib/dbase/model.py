@@ -38,7 +38,7 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, aliased
 
 from lica.sqlalchemy.asyncio.dbase import Model
 from lica.sqlalchemy.view import view
@@ -306,33 +306,44 @@ class Sample(Model):
 
 
 # Create the view for barebones SQL statements from console
+
+Ref_t = aliased(Summary)
+
 summary_view = view(
     name="summary_v",
     metadata=Model.metadata,
     selectable=select(
-        Summary.__table__.c.id.label("id"),
-        Photometer.__table__.c.name.label("name"),
-        Photometer.__table__.c.mac.label("mac"),
-        Summary.__table__.c.session.label("session"),
-        Summary.__table__.c.role.label("role"),
-        Summary.__table__.c.nrounds.label("nrounds"),
-        Summary.__table__.c.upd_flag.label("upd_flag"),
-        func.round(Summary.__table__.c.zero_point, 2).label("zero_point"),
-        func.round(Summary.__table__.c.zp_offset, 2).label("zp_offset"),
-        func.round((Summary.__table__.c.zero_point - Summary.__table__.c.zp_offset), 2).label(
+        Summary.id.label("id"),
+        Photometer.name.label("name"),
+        Photometer.mac.label("mac"),
+        Summary.session.label("session"),
+        Summary.role.label("role"),
+        Summary.nrounds.label("nrounds"),
+        Summary.upd_flag.label("upd_flag"),
+        func.round(Summary.zero_point, 2).label("zero_point"),
+        func.round(Summary.zp_offset, 2).label("zp_offset"),
+        func.round((Summary.zero_point - Summary.zp_offset), 2).label(
             "raw_zero_point"
         ),
-        Summary.__table__.c.calibration.label("calibration"),
-        func.round(Summary.__table__.c.prev_zp, 2).label("prev_zp"),
-        func.round(Summary.__table__.c.freq, 3).label("freq"),
-        func.round(Summary.__table__.c.mag, 2).label("mag"),
-        Summary.__table__.c.zero_point_method.label("zero_point_method"),
-        Summary.__table__.c.freq_method.label("freq_method"),
-        Summary.__table__.c.calversion.label("calversion"),
-        Summary.__table__.c.comment.label("comment"),
+        Summary.calibration.label("calibration"),
+        func.round(Summary.prev_zp, 2).label("prev_zp"),
+        func.round(Summary.freq, 3).label("freq"),
+        func.round(Summary.mag, 2).label("mag"),
+        Photometer.freq_offset.label("freq_offset"),
+        func.round((Ref_t.mag - Summary.mag), 2).label(
+            "mag_diff"
+        ),
+        Summary.zero_point_method.label("zero_point_method"),
+        Summary.freq_method.label("freq_method"),
+        Summary.calversion.label("calversion"),
+        Summary.comment.label("comment"),
     )
-    .select_from(Photometer.__table__.join(Summary.__table__))
-    .where(Summary.__table__.c.role == Role.TEST),
+    #.select_from(Photometer.__table__.join(Summary)).join(Ref_t, Ref_t.session == Summary.session)
+    #.select_from(Photometer.__table__).join(Summary, Photometer.id == Summary.phot_id).join(Ref_t, Ref_t.session == Summary.session)
+    .join(Ref_t, Ref_t.session == Summary.session)
+    .join(Photometer, Photometer.id == Summary.phot_id)
+    .where(Ref_t.role == Role.REF, Summary.role == Role.TEST),
+
 )
 
 # Another view for debugging data
