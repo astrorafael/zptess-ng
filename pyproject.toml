@@ -23,7 +23,7 @@ dependencies = [
   "typing-extensions", # Self for Python < 3.11
   "python-decouple", # Get info from enviromental variables
   # Async Database stuff
-  "SQLAlchemy[asyncio]",
+  "SQLAlchemy[asyncio]>=2.0",
   "alembic",
   "aiosqlite",
   #'exceptiongroups', # For Python < 3.11 when using TaskGroups
