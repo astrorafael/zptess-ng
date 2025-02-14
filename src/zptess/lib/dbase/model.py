@@ -28,6 +28,7 @@ else:
 
 from sqlalchemy import (
     select,
+    func,
     Enum,
     Table,
     Column,
@@ -316,15 +317,15 @@ summary_view = view(
         Summary.__table__.c.role.label("role"),
         Summary.__table__.c.nrounds.label("nrounds"),
         Summary.__table__.c.upd_flag.label("upd_flag"),
-        Summary.__table__.c.zero_point.label("zero_point"),
+        func.round(Summary.__table__.c.zero_point, 2).label("zero_point"),
         Summary.__table__.c.calibration.label("calibration"),
-        Summary.__table__.c.prev_zp.label("prev_zp"),
-        Summary.__table__.c.freq.label("freq"),
-        Summary.__table__.c.mag.label("mag"),
+        func.round(Summary.__table__.c.prev_zp, 2).label("prev_zp"),
+        func.round(Summary.__table__.c.freq, 3).label("freq"),
+        func.round(Summary.__table__.c.mag, 2).label("mag"),
         Summary.__table__.c.zero_point_method.label("zero_point_method"),
         Summary.__table__.c.freq_method.label("freq_method"),
         Summary.__table__.c.calversion.label("calversion"),
-        Summary.__table__.c.zp_offset.label("zp_offset"),
+        func.round(Summary.__table__.c.zp_offset,2).label("zp_offset"),
         Summary.__table__.c.comment.label("comment"),
     )
     .select_from(Summary.__table__.join(Photometer.__table__))
