@@ -331,7 +331,7 @@ summary_view = view(
         Summary.__table__.c.calversion.label("calversion"),
         Summary.__table__.c.comment.label("comment"),
     )
-    .select_from(Summary.__table__.join(Photometer.__table__))
+    .select_from(Photometer.__table__.join(Summary.__table__))
     .where(Summary.__table__.c.role == Role.TEST),
 )
 
