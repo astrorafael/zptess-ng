@@ -125,6 +125,7 @@ def wrzp() -> ArgumentParser:
     )
     return parser
 
+
 def nmsg() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(

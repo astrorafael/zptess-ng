@@ -48,6 +48,11 @@ zp-db-fix = "zptess.cli.dbase.fix:main"
 zp-read =  "zptess.cli.reader:main"
 zp-calib =  "zptess.cli.calibrate:main"
 zp-write =  "zptess.cli.writer:main"
+# Additional tools
+zp-begin = "zptess.cli.tools:begin"
+zp-end = "zptess.cli.tools:end"
+zp-purge = "zptess.cli.tools:purge"
+zp-export = "zptess.cli.tools:export"
 
 [build-system]
 requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
