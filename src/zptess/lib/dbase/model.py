@@ -190,7 +190,6 @@ class Summary(Model):
     ]  # Additional offset that was summed to the computed zero_point
     upd_flag: Mapped[Optional[bool]]  # 1 => TESS-W ZP was updated, 0 => TESS-W ZP was not updated
     prev_zp: Mapped[Optional[float]]
-    prev_freq_offset: Mapped[Optional[float]]
     zero_point: Mapped[Optional[float]]  #  calibrated zero point
     zero_point_method: Mapped[CentralTendencyType] = mapped_column(
         CentralTendencyType, nullable=True
@@ -330,7 +329,7 @@ summary_view = view(
         Summary.__table__.c.comment.label("comment"),
     )
     .select_from(Summary.__table__.join(Photometer.__table__))
-    .where(Summary.__table__.c.role == "test"),
+    .where(Summary.__table__.c.role == Role.TEST),
 )
 
 # Another view for debugging data
