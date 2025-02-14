@@ -1,0 +1,7 @@
+* Revisar summary_v
+- Round en los fileds? Si no se puede, redondear en la presentacion zp:2 mag:2 y freqs:3
+- restas en los fields? Si no se puede, añadir el campo mag_diff
+* Incrementar en 1 en número de versión en la migración
+* Tools. Unico fichero con multoples entru points
+* dict() => (None,None), excepto los defaultdict()
+* pyserial-asyncio en lugar de aioserial
