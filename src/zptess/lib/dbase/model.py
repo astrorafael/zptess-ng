@@ -318,6 +318,10 @@ summary_view = view(
         Summary.__table__.c.nrounds.label("nrounds"),
         Summary.__table__.c.upd_flag.label("upd_flag"),
         func.round(Summary.__table__.c.zero_point, 2).label("zero_point"),
+        func.round(Summary.__table__.c.zp_offset, 2).label("zp_offset"),
+        func.round((Summary.__table__.c.zero_point - Summary.__table__.c.zp_offset), 2).label(
+            "raw_zero_point"
+        ),
         Summary.__table__.c.calibration.label("calibration"),
         func.round(Summary.__table__.c.prev_zp, 2).label("prev_zp"),
         func.round(Summary.__table__.c.freq, 3).label("freq"),
@@ -325,7 +329,6 @@ summary_view = view(
         Summary.__table__.c.zero_point_method.label("zero_point_method"),
         Summary.__table__.c.freq_method.label("freq_method"),
         Summary.__table__.c.calversion.label("calversion"),
-        func.round(Summary.__table__.c.zp_offset,2).label("zp_offset"),
         Summary.__table__.c.comment.label("comment"),
     )
     .select_from(Summary.__table__.join(Photometer.__table__))
