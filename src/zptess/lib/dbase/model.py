@@ -328,7 +328,9 @@ summary_view = view(
         Summary.__table__.c.calversion.label("calversion"),
         Summary.__table__.c.zp_offset.label("zp_offset"),
         Summary.__table__.c.comment.label("comment"),
-    ).select_from(Summary.__table__.join(Photometer.__table__)),
+    )
+    .select_from(Summary.__table__.join(Photometer.__table__))
+    .where(Summary.__table__.c.role == "test"),
 )
 
 # Another view for debugging data
