@@ -321,7 +321,6 @@ summary_view = view(
         Summary.__table__.c.prev_zp.label("prev_zp"),
         Summary.__table__.c.freq.label("freq"),
         Summary.__table__.c.mag.label("mag"),
-        Summary.__table__.c.prev_freq_offset.label("prev_freq_offset"),
         Summary.__table__.c.zero_point_method.label("zero_point_method"),
         Summary.__table__.c.freq_method.label("freq_method"),
         Summary.__table__.c.calversion.label("calversion"),

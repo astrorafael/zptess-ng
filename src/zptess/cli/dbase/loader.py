@@ -87,6 +87,9 @@ async def load_config(path: str, async_session: async_sessionmaker[AsyncSessionC
             with open(path, newline="") as f:
                 reader = csv.DictReader(f, delimiter=";")
                 for row in reader:
+                    if row["section"] == "database" and row["prop"] == "version":
+                        value = int(row["value"]) + 1
+                        row["value"] = f"{value:02d}"
                     config = Config(**row)
                     log.info("%r", config)
                     session.add(config)
