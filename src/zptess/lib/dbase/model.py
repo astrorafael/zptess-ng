@@ -338,8 +338,6 @@ summary_view = view(
         Summary.calversion.label("calversion"),
         Summary.comment.label("comment"),
     )
-    #.select_from(Photometer.__table__.join(Summary)).join(Ref_t, Ref_t.session == Summary.session)
-    #.select_from(Photometer.__table__).join(Summary, Photometer.id == Summary.phot_id).join(Ref_t, Ref_t.session == Summary.session)
     .join(Ref_t, Ref_t.session == Summary.session)
     .join(Photometer, Photometer.id == Summary.phot_id)
     .where(Ref_t.role == Role.REF, Summary.role == Role.TEST),
@@ -351,30 +349,30 @@ rounds_view = view(
     name="rounds_v",
     metadata=Model.metadata,
     selectable=select(
-        Round.__table__.c.id.label("id"),
-        Photometer.__table__.c.name.label("name"),
-        Photometer.__table__.c.mac.label("mac"),
-        Photometer.__table__.c.model.label("model"),
-        Summary.__table__.c.session.label("session"),
-        Round.__table__.c.round.label("round"),
-        Round.__table__.c.role.label("role"),
-        Round.__table__.c.freq.label("freq"),
-        Round.__table__.c.central.label("central"),
-        Round.__table__.c.stddev.label("stddev"),
-        Round.__table__.c.mag.label("mag"),
-        Round.__table__.c.zp_fict.label("zp_fict"),
-        Round.__table__.c.zero_point.label("zero_point"),
-        Round.__table__.c.nsamples.label("nsamples"),
-        Round.__table__.c.duration.label("duration"),
-        Round.__table__.c.begin_tstamp.label("begin_tstamp"),
-        Round.__table__.c.end_tstamp.label("end_tstamp"),
-        Summary.__table__.c.upd_flag.label("upd_flag"),
-        Summary.__table__.c.nrounds.label("nrounds"),
-        Summary.__table__.c.freq.label("mean_freq"),
-        Summary.__table__.c.freq_method.label("freq_method"),
+        Round.id.label("id"),
+        Photometer.name.label("name"),
+        Photometer.mac.label("mac"),
+        Photometer.model.label("model"),
+        Summary.session.label("session"),
+        Round.__table__.c.round.label("round"), # Problems with the 'round' attribute name'
+        Round.role.label("role"),
+        Round.freq.label("freq"),
+        Round.central.label("central"),
+        Round.stddev.label("stddev"),
+        Round.mag.label("mag"),
+        Round.zp_fict.label("zp_fict"),
+        Round.zero_point.label("zero_point"),
+        Round.nsamples.label("nsamples"),
+        Round.duration.label("duration"),
+        Round.begin_tstamp.label("begin_tstamp"),
+        Round.end_tstamp.label("end_tstamp"),
+        Summary.upd_flag.label("upd_flag"),
+        Summary.nrounds.label("nrounds"),
+        Summary.freq.label("mean_freq"),
+        Summary.freq_method.label("freq_method"),
     )
-    .select_from(Round.__table__.join(Summary.__table__))
-    .join(Photometer.__table__),
+    .join(Summary, Round.summ_id == Summary.id)
+    .join(Photometer, Photometer.id == Summary.phot_id),
 )
 
 
