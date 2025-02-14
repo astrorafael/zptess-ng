@@ -1,3 +1,2 @@
 * Tools. Unico fichero con multoples entru points
-* dict() => (None,None), excepto los defaultdict()
 * pyserial-asyncio en lugar de aioserial
