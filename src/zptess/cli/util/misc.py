@@ -22,7 +22,7 @@ from lica.asyncio.photometer import Role
 # local imports
 # -------------
 
-from ...lib.photometer import Controller
+from ...lib.controller.photometer import Controller
 
 
 async def log_phot_info(controller: Controller, role: Role) -> None:

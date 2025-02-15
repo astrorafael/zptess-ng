@@ -35,7 +35,7 @@ from .ring import RingBuffer
 from .base import Controller as BaseController
 
 
-from .. import CentralTendency
+from ... import CentralTendency
 
 # ----------------
 # Module constants

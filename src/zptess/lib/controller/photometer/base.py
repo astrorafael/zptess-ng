@@ -30,7 +30,7 @@ from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 # local imports
 # -------------
 
-from ...lib.dbase.model import Config
+from ....lib.dbase.model import Config
 
 
 # ----------------

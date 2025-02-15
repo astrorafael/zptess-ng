@@ -30,7 +30,7 @@ from lica.asyncio.photometer import Role, Message
 from .. import __version__
 from .util import parser as prs
 from .util.misc import log_phot_info, update_zp
-from ..lib.photometer import VolatileCalibrator, PersistentCalibrator, Event, RoundStatsType
+from ..lib.controller.photometer import VolatileCalibrator, PersistentCalibrator, Event, RoundStatsType
 from ..lib import CentralTendency
 
 # ----------------
