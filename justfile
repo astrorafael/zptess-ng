@@ -115,11 +115,30 @@ aload stage="photometer" folder="migra":
         exit 1
     fi
 
+# ========================= #
+# QUCK COMMAND LINE TESTING #
+# ========================= #
+
+# Writes new zero point to photometer
+write zp:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-write --console test -z {{zp}}
+
+# Reads test/ref/both photometers
+read which="test" N="10" :
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-read --console {{which}} -N {{N}}
+
+# Calibrate photometer
 calib persist="" verbose="":
     #!/usr/bin/env bash
     set -euxo pipefail
     cp zptess.db zptess-prudb.db
     uv run zp-calib --console {{verbose}} test -b 9 -R 3 -P 5 {{persist}}
+
+# =======================================================================
 
 [private]
 db-restore:
