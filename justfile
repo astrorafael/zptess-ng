@@ -49,6 +49,7 @@ lica-dev version="main":
     echo "Removing previous LICA dependency"
     uv add aiohttp
     uv add pyserial-asyncio
+    uv add aioserial
     uv remove lica || echo "Ignoring non existing LICA library";
     if [[ "{{ version }}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         echo "Adding LICA source library --tag {{ version }}"; 
@@ -67,6 +68,7 @@ lica-rel version="":
     echo "Adding LICA library {{ version }}";
     uv add --refresh-package lica lica[photometer] {{ version }};
     uv remove aiohttp
+    uv remove aioserial
     uv remove pyserial-asyncio
 
 
