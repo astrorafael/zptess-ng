@@ -19,9 +19,6 @@ from typing import Mapping, Any, Dict, Tuple, AsyncIterator
 # Third-party library imports
 # ----------------------------
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
-
 from lica.asyncio.photometer import Role, Message as PhotMessage, Model as PhotModel, Sensor
 from lica.asyncio.photometer.builder import PhotometerBuilder
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
@@ -30,8 +27,7 @@ from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 # local imports
 # -------------
 
-from ....lib.dbase.model import Config
-
+from ..  import load_config
 
 # ----------------
 # Module constants
@@ -95,16 +91,16 @@ class Controller(ABC):
         builder = PhotometerBuilder(engine)  # For the reference photometer using database info
         async with self.Session() as session:
             for role in self.roles:
-                val_db = await self._load_config(session, SECTION[role], "model")
+                val_db = await load_config(session, SECTION[role], "model")
                 val_arg = self.param[role]["model"]
                 self.param[role]["model"] = val_arg if val_arg is not None else PhotModel(val_db)
-                val_db = await self._load_config(session, SECTION[role], "sensor")
+                val_db = await load_config(session, SECTION[role], "sensor")
                 val_arg = self.param[role]["sensor"]
                 self.param[role]["sensor"] = val_arg if val_arg is not None else Sensor(val_db)
-                val_db = await self._load_config(session, SECTION[role], "old-proto")
+                val_db = await load_config(session, SECTION[role], "old-proto")
                 val_arg = self.param[role]["old_proto"]
                 self.param[role]["old_proto"] = val_arg if val_arg is not None else bool(val_db)
-                val_db = await self._load_config(session, SECTION[role], "endpoint")
+                val_db = await load_config(session, SECTION[role], "endpoint")
                 val_arg = self.param[role]["endpoint"]
                 self.param[role]["endpoint"] = val_arg if val_arg is not None else val_db
                 self.photometer[role] = builder.build(
@@ -177,10 +173,6 @@ class Controller(ABC):
     # ----------------------
     # Private helper methods
     # ----------------------
-
-    async def _load_config(self, session: AsyncSessionClass, section: str, prop: str) -> str | None:
-        q = select(Config.value).where(Config.section == section, Config.prop == prop)
-        return (await session.scalars(q)).one_or_none()
 
     async def _launch_phot_tasks(self):
         for role in self.roles:
