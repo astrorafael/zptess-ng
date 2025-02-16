@@ -179,9 +179,8 @@ class Controller(ABC):
     # ----------------------
 
     async def _load_config(self, session: AsyncSessionClass, section: str, prop: str) -> str | None:
-        async with session:
-            q = select(Config.value).where(Config.section == section, Config.prop == prop)
-            return (await session.scalars(q)).one_or_none()
+        q = select(Config.value).where(Config.section == section, Config.prop == prop)
+        return (await session.scalars(q)).one_or_none()
 
     async def _launch_phot_tasks(self):
         for role in self.roles:
