@@ -45,10 +45,10 @@ test-publish pkg="zptess": build
 # Adds lica source library as dependency. 'version' may be a tag or branch
 lica-dev version="main":
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -exuo pipefail
     echo "Removing previous LICA dependency"
     uv add aiohttp
-    uv add aioserial
+    uv add pyserial-asyncio
     uv remove lica || echo "Ignoring non existing LICA library";
     if [[ "{{ version }}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         echo "Adding LICA source library --tag {{ version }}"; 
@@ -61,13 +61,13 @@ lica-dev version="main":
 # Adds lica release library as dependency with a given version
 lica-rel version="":
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -exuo pipefail
     echo "Removing previous LICA dependency"
     uv remove lica || echo "Ignoring non existing LICA library";
     echo "Adding LICA library {{ version }}";
     uv add --refresh-package lica lica[photometer] {{ version }};
     uv remove aiohttp
-    uv remove aioserial
+    uv remove pyserial-asyncio
 
 
 # Backup .env to storage unit
