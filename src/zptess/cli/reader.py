@@ -16,7 +16,7 @@ from argparse import Namespace, ArgumentParser
 # Third party imports
 # -------------------
 
-# from lica.cli import execute
+from lica.sqlalchemy import sqa_logging
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
 
@@ -159,11 +159,7 @@ def add_args(parser: ArgumentParser):
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await args.func(args)
 
 

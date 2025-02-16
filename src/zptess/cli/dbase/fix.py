@@ -26,6 +26,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from lica.sqlalchemy import sqa_logging
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 from lica.asyncio.cli import execute
 
@@ -35,7 +36,7 @@ from lica.asyncio.cli import execute
 # local imports
 # -------------
 
-from ...lib.dbase.model import Round, Photometer, Sample, Summary
+from ...lib.dbase.model import Round
 from ... import __version__
 from ...lib import CentralTendency
 
@@ -170,11 +171,7 @@ async def fix(args: Namespace) -> None:
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await fix(args)
 
 

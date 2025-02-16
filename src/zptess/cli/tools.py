@@ -15,6 +15,7 @@ from argparse import Namespace, ArgumentParser
 # Third party imports
 # -------------------
 
+from lica.sqlalchemy import sqa_logging
 from lica.validators import vdate, vdir
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
@@ -64,14 +65,6 @@ async def cli_batch_purge(args: Namespace) -> None:
 async def cli_batch_export(args: Namespace) -> None:
     pass
 
-def cli_sql_log_levels(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-
-
 def begin_add_args(parser: ArgumentParser):
     parser.add_argument(
         "-c",
@@ -102,7 +95,7 @@ def export_add_args(parser: ArgumentParser):
 
 
 async def cli_main(args: Namespace) -> None:
-    cli_sql_log_levels(args)
+    sqa_logging(args)
     await args.func(args)
 
 

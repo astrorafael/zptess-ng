@@ -20,6 +20,7 @@ from typing import Sequence, Mapping
 
 from pubsub import pub
 
+from lica.sqlalchemy import sqa_logging
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role, Message
 
@@ -253,11 +254,7 @@ def add_args(parser: ArgumentParser):
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await args.func(args)
 
 

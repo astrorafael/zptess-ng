@@ -21,11 +21,11 @@ from typing import List
 # Third party imports
 # -------------------
 
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from lica.sqlalchemy import sqa_logging
 from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
 from lica.asyncio.photometer import Role
 from lica.validators import vdate
@@ -504,11 +504,7 @@ def prs_session() -> ArgumentParser:
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await qa(args)
 
 
