@@ -80,14 +80,14 @@ env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", proje
 db-anew drive=def_drive: (check_mnt drive) (db-restore)
 
 # Starts a new database export migration cycle   
-anew folder="migra": db-anew
+anew folder="migra" verbose="": db-anew
     #!/usr/bin/env bash
     set -exuo pipefail
     uv sync --reinstall
-    zp-db-fix-src
-    test -d {{ folder }} || mkdir {{ folder}}
-    zp-db-schema --console
-    zp-db-extract --console all --output-dir {{ folder}}
+    uv run zp-db-fix-src
+    test -d {{ folder }} || mkdir {{ folder }}
+    uv run zp-db-schema --console {{ verbose }}
+    uv run zp-db-extract --console {{ verbose }} all --output-dir {{ folder }}
 
 # Starts a new database import migration cycle   
 aload stage="photometer" folder="migra":
@@ -120,23 +120,23 @@ aload stage="photometer" folder="migra":
 # ========================= #
 
 # Writes new zero point to photometer
-write zp:
+write zp verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-write --console test -z {{zp}}
+    uv run zp-write --console {{verbose}} {{trace}} test -z {{zp}}
 
 # Reads test/ref/both photometers
-read which="test" N="10" :
+read verbose="" trace="" which="test" N="10" :
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-read --console {{which}} -N {{N}}
+    uv run zp-read --console {{verbose}} {{trace}} {{which}} -N {{N}}
 
 # Calibrate photometer
-calib persist="" verbose="":
+calib verbose="" trace="" persist="":
     #!/usr/bin/env bash
     set -euxo pipefail
     cp zptess.db zptess-prudb.db
-    uv run zp-calib --console {{verbose}} test -b 9 -R 3 -P 5 {{persist}}
+    uv run zp-calib --console {{verbose}} {{trace}} test -b 9 -R 3 -P 5 {{persist}}
 
 # =======================================================================
 

@@ -209,24 +209,30 @@ async def cli_calib_test(args: Namespace) -> None:
     pub.subscribe(on_round, Event.ROUND)
     pub.subscribe(on_summary, Event.SUMMARY)
 
+    
+    await controller.init()
     try:
-        await controller.init()
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_phot_info(controller, Role.REF))
             tg.create_task(log_phot_info(controller, Role.TEST))
-        if args.dry_run:
-            log.info("Dry run. Will stop here ...")
-            return
-        final_zero_point = await controller.calibrate()
-        if args.update:
-            await update_zp(controller, final_zero_point)
-        else:
-            msg = f"Zero Point {final_zero_point:.2f} not saved to {Role.TEST} {controller.phot_info[Role.TEST]['name']}"
-            log.info(msg)
-            await controller.not_updated(final_zero_point, msg)
     except* Exception as eg:
         for e in eg.exceptions:
-            log.error(e)
+            if args.trace:
+                log.exception(e)
+            else:
+                log.error(e)
+        raise RuntimeError("Could't continue execution, check errors above")
+    if args.dry_run:
+        log.info("Dry run. Will stop here ...")
+        return
+    final_zero_point = await controller.calibrate()
+    if args.update:    
+        await update_zp(controller, final_zero_point)
+    else:
+        msg = f"Zero Point {final_zero_point:.2f} not saved to {Role.TEST} {controller.phot_info[Role.TEST]['name']}"
+        log.info(msg)
+        await controller.not_updated(final_zero_point, msg)
+    
 
 
 # -----------------

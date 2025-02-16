@@ -127,7 +127,11 @@ async def cli_read_both(args: Namespace) -> None:
             tg.create_task(log_messages(controller, Role.TEST, args.num_messages))
     except* Exception as eg:
         for e in eg.exceptions:
-            log.error(e)
+            if args.trace:
+                log.exception(e)
+            else:
+                log.error(e)
+        raise RuntimeError("Could't continue execution, check errors above")
 
 
 # -----------------

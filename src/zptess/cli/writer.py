@@ -65,15 +65,11 @@ async def cli_update_zp(args: Namespace) -> None:
     controller = Writer(
         test_params=test_params,
     )
-    try:
-        await controller.init()
-        await log_phot_info(controller, Role.TEST)
-        if args.dry_run:
-            return
-        await update_zp(controller, args.zero_point)
-    except Exception as e:
-        log.error(e)
-
+    await controller.init()
+    await log_phot_info(controller, Role.TEST)
+    if args.dry_run:
+        return
+    await update_zp(controller, args.zero_point)
 
 # -----------------
 # CLI API functions
