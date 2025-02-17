@@ -140,31 +140,31 @@ calib verbose="" trace="" persist="":
 open  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-begin --console {{verbose}} {{trace}}
+    uv run zp-batch --console {{verbose}} {{trace}} begin
 
 # Close current open batch
 close  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-end --console {{verbose}} {{trace}}
+    uv run zp-batch --console {{verbose}} {{trace}} end
 
 # Close current open batch
 purge  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-purge --console {{verbose}} {{trace}}
+    uv run zp-batch --console {{verbose}} {{trace}} purge
 
 # Close current open batch
 orphan  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-orphan --console {{verbose}} {{trace}}
+    uv run zp-batch --console {{verbose}} {{trace}} orphan
 
 # Close current open batch
 view  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-view --console {{verbose}} {{trace}}
+    uv run zp-batch --console {{verbose}} {{trace}} view 
 
 
 # =======================================================================

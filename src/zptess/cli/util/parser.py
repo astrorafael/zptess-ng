@@ -16,7 +16,7 @@ from argparse import ArgumentParser
 # Third-party library imports
 # ----------------------------
 
-from lica.validators import vdir
+from lica.validators import vdir, vdate
 from lica.asyncio.photometer import Model as PhotModel, Sensor
 
 # --------------
@@ -270,5 +270,70 @@ def stats() -> ArgumentParser:
         default=None,
         metavar="<float>",
         help="Offset to add to calibrated Zero Point, defaults to %(default)s",
+    )
+    return parser
+
+
+# These are for batch management
+
+
+def comm() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-c",
+        "--comment",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Optional batch comment (default %(default)s)",
+    )
+    return parser
+
+
+def tbl() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=10,
+        help="Table page size",
+    )
+    parser.add_argument(
+        "--table-format",
+        choices=("simple", "grid"),
+        default="simple",
+        help="List batches",
+    )
+    return parser
+
+def lst() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List orphan summaries one by one",
+    )
+    return parser
+
+def expor() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    ex1 = parser.add_mutually_exclusive_group(required=True)
+    ex1.add_argument(
+        "-b",
+        "--begin-date",
+        type=vdate,
+        metavar="<YYYY-MM-DDTHH:MM:SS>",
+        default=None,
+        help="by begin",
+    )
+    ex1.add_argument("-l", "--latest", action="store_true", help="latest closed batch")
+    ex1.add_argument("-a", "--all", action="store_true", help="all closed batches")
+    parser.add_argument("-d", "--base-dir", type=vdir, default=".", help="Base dir for the export")
+    parser.add_argument("-e", "--email", action="store_true", help="Send results by email")
+    parser.add_argument(
+        "-u",
+        "--updated",
+        action="store_true",
+        help="Do action only when ZP updated flag is True|False",
     )
     return parser
