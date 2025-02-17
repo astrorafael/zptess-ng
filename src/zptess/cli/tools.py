@@ -26,6 +26,7 @@ from lica.asyncio.photometer import Role
 
 from .. import __version__
 from .util import parser as prs
+from ..lib.controller.batch import Controller
 
 # ----------------
 # Module constants
@@ -38,6 +39,7 @@ from .util import parser as prs
 
 # get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
+
 
 # -----------------
 # Auxiliary classes
@@ -54,10 +56,13 @@ log = logging.getLogger(__name__.split(".")[-1])
 # -----------------
 
 async def cli_batch_begin(args: Namespace) -> None:
-    pass
+    controller = Controller()
+    tstamp = await controller.open(comment="pepe")
+    log.info("Opening batch %s", tstamp.strftime("%Y-%m-%dT%H:%M:%S"))
 
 async def cli_batch_end(args: Namespace) -> None:
-    pass
+    controller = Controller()
+    tstamp = await controller.close()
 
 async def cli_batch_purge(args: Namespace) -> None:
     pass

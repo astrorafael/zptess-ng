@@ -140,6 +140,22 @@ calib verbose="" trace="" persist="":
     cp zptess.db zptess-prudb.db
     uv run zp-calib --console {{verbose}} {{trace}} test -b 9 -R 3 -P 5 {{persist}}
 
+# Open a new batch
+open  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    #cp zptess.db zptess-prudb.db
+    uv run zp-begin --console {{verbose}} {{trace}}
+
+
+# Close current open batch
+close  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    #cp zptess.db zptess-prudb.db
+    uv run zp-end --console {{verbose}} {{trace}}
+
+
 # =======================================================================
 
 [private]
