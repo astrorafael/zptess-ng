@@ -155,6 +155,13 @@ close  verbose="" trace="":
     #cp zptess.db zptess-prudb.db
     uv run zp-end --console {{verbose}} {{trace}}
 
+# Close current open batch
+purge  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    #cp zptess.db zptess-prudb.db
+    uv run zp-purge --console {{verbose}} {{trace}}
+
 
 # =======================================================================
 

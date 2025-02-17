@@ -10,12 +10,13 @@
 import logging
 
 from datetime import datetime, timezone
+from typing import Tuple
 
 # ---------------------------
 # Third-party library imports
 # ----------------------------
 
-from sqlalchemy import select, func
+from sqlalchemy import select, delete, func
 
 from lica.sqlalchemy.asyncio.dbase import AsyncSession
 
@@ -52,22 +53,45 @@ class Controller:
         async with self.Session() as session:
             return await self._is_open(session)
 
-    async def close(self) -> datetime:
+    async def close(self) -> Tuple[datetime, datetime, int]:
         end_tstamp = datetime.now(timezone.utc).replace(microsecond=0)
         async with self.Session() as session:
             async with session.begin():
                 await self._assert_open(session)
-                q = select(func.count(SummaryView.session)).where(SummaryView.upd_flag == True)  # noqa: E712
-                _ = (await session.scalars(q)).one()
-                batch = await self._latest_batch(session)
+                batch = await self._latest(session)
+                t0 = batch.begin_tstamp
+                t1 = end_tstamp
+                # We count summaries even if the upd_flag is False
+                q = (
+                    select(func.count(SummaryView.session)).where(
+                        SummaryView.session.between(t0, t1)
+                    ) 
+                )
+                N = (await session.scalars(q)).one()
                 batch.end_tstamp = end_tstamp
                 batch.email_sent = False
-                batch.calibrations = 999
+                batch.calibrations = N
                 session.add(batch)
-        return end_tstamp
+        return t0, t1, N
 
-    async def purge(self) -> None:
-        pass
+    async def purge(self) -> int:
+        async with self.Session() as session:
+            async with session.begin():
+                stmt = delete(Batch).where(Batch.calibrations == 0, Batch.end_tstamp.is_not(None))
+                result = await session.execute(stmt)
+                return result.rowcount
+
+    async def orphaned(self) -> int:
+        in_batches = set()
+        async with self.Session() as session:
+            async with session.begin():
+                q = select(Batch.begin_tstamp, Batch.end_tstamp).where(Batch.end_tstamp.is_not(None))
+                batches = (await session.scalars(q)).all()
+                for t0, t1 in batches:
+                    q = select(SummaryView.session).where(SummaryView.session.between(t0,t1))
+                    summaries = (await session.scalars(q)).all()
+                    in_batches.add(summaries)
+
 
     async def export(self, path: str) -> None:
         pass
@@ -84,7 +108,7 @@ class Controller:
         count = (await session.scalars(q)).one()
         return count > 0
 
-    async def _latest_batch(
+    async def _latest(
         self,
         session: AsyncSession,
     ) -> Batch | None:
@@ -98,7 +122,7 @@ class Controller:
     ) -> None:
         already_open = await self._is_open(session)
         if already_open:
-            raise RuntimeError("There is an already open session")
+            raise RuntimeError("Batch already open!")
 
     async def _assert_open(
         self,
@@ -106,4 +130,4 @@ class Controller:
     ) -> None:
         already_open = await self._is_open(session)
         if not already_open:
-            raise RuntimeError("There is an already open session")
+            raise RuntimeError("Batch already closed!")
