@@ -7,7 +7,11 @@
 # --------------------
 # System wide imports
 # -------------------
+
+import os
 import logging
+import zipfile
+import asyncio
 
 from datetime import datetime, timezone
 from typing import Tuple, Iterable
@@ -24,7 +28,7 @@ from lica.sqlalchemy.asyncio.dbase import AsyncSession
 # local imports
 # -------------
 
-from ..dbase.model import Batch, SummaryView
+from ...dbase.model import Batch, SummaryView
 
 # -----------------------
 # Module global variables
@@ -32,6 +36,31 @@ from ..dbase.model import Batch, SummaryView
 
 # get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
+
+
+# ------------------
+# Auxiliar functions
+# ------------------
+
+
+def get_paths(directory: str) -> Iterable:
+    '''Get all file paths in a list''' 
+    file_paths = list()
+    # crawling through directory and subdirectories 
+    for root, directories, files in os.walk(directory):
+        root = os.path.basename(root) # Needs a change of cwd later on if we do this
+        for filename in files: 
+            filepath = os.path.join(root, filename) 
+            file_paths.append(filepath) 
+    return file_paths         
+
+def pack(base_dir: str, zip_file: str):
+    '''Pack all files in the ZIP file given by options'''
+    paths = get_paths(base_dir)
+    log.info(f"Creating ZIP File: '{os.path.basename(zip_file)}'")
+    with zipfile.ZipFile(zip_file, 'w') as myzip:
+        for myfile in paths: 
+            myzip.write(myfile) 
 
 
 class Controller:
