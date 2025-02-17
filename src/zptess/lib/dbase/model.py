@@ -134,12 +134,15 @@ class Config(Model):
 
 class Batch(Model):
     __tablename__ = "batch_t"
-
-    begin_tstamp: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    begin_tstamp: Mapped[datetime] = mapped_column(DateTime, unique=True)
     end_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
     email_sent: Mapped[Optional[bool]]
     calibrations: Mapped[Optional[int]]
     comment: Mapped[Optional[str]] = mapped_column(String(255))
+
+    # This is not a real column, it s meant for the ORM
+    summaries: Mapped[List["Summary"]] = relationship(back_populates="batch")
 
     def __repr__(self) -> str:
         return f"Batch(begin={datestr(self.begin_tstamp)}, end={datestr(self.end_tstamp)}, N={self.calibrations!r}, emailed={self.email_sent!r})"
@@ -180,6 +183,7 @@ class Summary(Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     phot_id: Mapped[int] = mapped_column(ForeignKey("photometer_t.id"), index=True)
+    batch_id: Mapped[Optional[int]] = mapped_column(ForeignKey("batch_t.id"))
     session: Mapped[datetime] = mapped_column(DateTime)  # calibration session identifier
     role: Mapped[RoleType] = mapped_column(RoleType)
     calibration: Mapped[CalibrationType] = mapped_column(CalibrationType, nullable=True)
@@ -203,6 +207,7 @@ class Summary(Model):
     )  #  Additional comment for the calibration process
 
     # These are not a real columns, it is meant for the ORM
+    batch: Mapped[Optional["Batch"]] = relationship(back_populates="summaries")
     photometer: Mapped["Photometer"] = relationship(back_populates="calibrations")
     rounds: Mapped[List["Round"]] = relationship(back_populates="summary")
     samples: Mapped[Set["Sample"]] = relationship(back_populates="summary")
