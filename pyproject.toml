@@ -49,12 +49,8 @@ zp-read =  "zptess.cli.reader:main"
 zp-calib =  "zptess.cli.calibrate:main"
 zp-write =  "zptess.cli.writer:main"
 # Additional tools
-zp-begin = "zptess.cli.tools:begin"
-zp-end = "zptess.cli.tools:end"
-zp-purge = "zptess.cli.tools:purge"
-zp-orphan = "zptess.cli.tools:orphan"
-zp-view = "zptess.cli.tools:view"
-zp-export = "zptess.cli.tools:export"
+zp-batch = "zptess.cli.tools:main"
+
 
 [build-system]
 requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
