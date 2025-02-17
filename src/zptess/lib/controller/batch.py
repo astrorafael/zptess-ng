@@ -10,7 +10,7 @@
 import logging
 
 from datetime import datetime, timezone
-from typing import Tuple
+from typing import Tuple, Set
 
 # ---------------------------
 # Third-party library imports
@@ -81,16 +81,20 @@ class Controller:
                 result = await session.execute(stmt)
                 return result.rowcount
 
-    async def orphaned(self) -> int:
+    async def orphan(self) -> set:
         in_batches = set()
+        all_summaries = set()
         async with self.Session() as session:
             async with session.begin():
                 q = select(Batch.begin_tstamp, Batch.end_tstamp).where(Batch.end_tstamp.is_not(None))
-                batches = (await session.scalars(q)).all()
+                batches = (await session.execute(q)).all()
+                q = select(SummaryView.session)
+                all_summaries = set((await session.scalars(q)).all())
                 for t0, t1 in batches:
                     q = select(SummaryView.session).where(SummaryView.session.between(t0,t1))
                     summaries = (await session.scalars(q)).all()
-                    in_batches.add(summaries)
+                    in_batches.update(set(summaries))
+        return all_summaries - in_batches
 
 
     async def export(self, path: str) -> None:

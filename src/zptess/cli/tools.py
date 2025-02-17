@@ -79,10 +79,15 @@ async def cli_batch_purge(args: Namespace) -> None:
     N = await batch.purge()
     log.info("Purged %d batches with no summary calibration entries", N)
 
+
 async def cli_batch_orphan(args: Namespace) -> None:
     batch = Controller()
-    N = await batch.purge()
-    log.info("Purged %d batches with no summary calibration entries", N)
+    orphans = await batch.orphan()
+    log.info("%d orphan summaries not belonging to a batch", len(orphans))
+    if args.list:
+        for i, item in enumerate(sorted(orphans), start=1):
+            log.info("[%03d] %s", i, item)
+
 
 async def cli_batch_export(args: Namespace) -> None:
     pass
@@ -103,10 +108,17 @@ def begin_add_args(parser: ArgumentParser):
 def end_add_args(parser: ArgumentParser):
     parser.set_defaults(func=cli_batch_end)
 
+
 def purge_add_args(parser: ArgumentParser):
     parser.set_defaults(func=cli_batch_purge)
 
+
 def orphan_add_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List orphan summaries one by one",
+    )
     parser.set_defaults(func=cli_batch_orphan)
 
 
@@ -169,6 +181,7 @@ def purge():
         version=__version__,
         description="Purge batches with no calibrations",
     )
+
 
 def orphan():
     """The main entry point specified by pyproject.toml"""

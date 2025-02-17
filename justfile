@@ -92,26 +92,26 @@ anew folder="migra" verbose="": db-anew
     uv run zp-db-extract --console {{ verbose }} all --output-dir {{ folder }}
 
 # Starts a new database import migration cycle   
-aload stage="photometer" folder="migra":
+aload stage="summary" folder="migra":
     #!/usr/bin/env bash
     set -exuo pipefail
     test -d {{ folder }} || mkdir {{ folder}}
-    zp-db-loader --console config --input-dir {{ folder}}
-    zp-db-loader --console batch --input-dir {{ folder}}
+    uv run zp-db-loader --console config --input-dir {{ folder}}
+    uv run zp-db-loader --console batch --input-dir {{ folder}}
     if [ "{{stage}}" == "photometer" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{ folder}}
     elif [ "{{stage}}" == "summary" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console summary --input-dir {{ folder}}
     elif [ "{{stage}}" == "rounds" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
-        zp-db-loader --console rounds --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console summary --input-dir {{ folder}}
+        uv run zp-db-loader --console rounds --input-dir {{ folder}}
     elif [ "{{stage}}" == "samples" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
-        zp-db-loader --console rounds --input-dir {{ folder}}
-        zp-db-loader --console samples --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console summary --input-dir {{ folder}}
+        uv run zp-db-loader --console rounds --input-dir {{ folder}}
+        uv run zp-db-loader --console samples --input-dir {{ folder}}
     else
         echo "No known stage"
         exit 1
@@ -144,23 +144,25 @@ calib verbose="" trace="" persist="":
 open  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    #cp zptess.db zptess-prudb.db
     uv run zp-begin --console {{verbose}} {{trace}}
-
 
 # Close current open batch
 close  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    #cp zptess.db zptess-prudb.db
     uv run zp-end --console {{verbose}} {{trace}}
 
 # Close current open batch
 purge  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    #cp zptess.db zptess-prudb.db
     uv run zp-purge --console {{verbose}} {{trace}}
+
+# Close current open batch
+orphan  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-orphan --console {{verbose}} {{trace}}
 
 
 # =======================================================================
