@@ -95,23 +95,23 @@ anew folder="migra" verbose="": db-anew
 aload stage="summary" folder="migra":
     #!/usr/bin/env bash
     set -exuo pipefail
-    test -d {{ folder }} || mkdir {{ folder}}
-    uv run zp-db-loader --console config --input-dir {{ folder}}
-    uv run zp-db-loader --console batch --input-dir {{ folder}}
+    test -d {{ folder }} || mkdir {{folder}}
+    uv run zp-db-loader --console config --input-dir {{folder}}
+    uv run zp-db-loader --console batch --input-dir {{folder}}
     if [ "{{stage}}" == "photometer" ]; then
-        uv run zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
     elif [ "{{stage}}" == "summary" ]; then
-        uv run zp-db-loader --console photometer --input-dir {{ folder}}
-        uv run zp-db-loader --console summary --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
     elif [ "{{stage}}" == "rounds" ]; then
-        uv run zp-db-loader --console photometer --input-dir {{ folder}}
-        uv run zp-db-loader --console summary --input-dir {{ folder}}
-        uv run zp-db-loader --console rounds --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
+        uv run zp-db-loader --console rounds --input-dir {{folder}}
     elif [ "{{stage}}" == "samples" ]; then
-        uv run zp-db-loader --console photometer --input-dir {{ folder}}
-        uv run zp-db-loader --console summary --input-dir {{ folder}}
-        uv run zp-db-loader --console rounds --input-dir {{ folder}}
-        uv run zp-db-loader --console samples --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
+        uv run zp-db-loader --console rounds --input-dir {{folder}}
+        uv run zp-db-loader --console samples --input-dir {{folder}}
     else
         echo "No known stage"
         exit 1
