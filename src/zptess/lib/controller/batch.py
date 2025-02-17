@@ -10,7 +10,7 @@
 import logging
 
 from datetime import datetime, timezone
-from typing import Tuple, Set
+from typing import Tuple, Iterable
 
 # ---------------------------
 # Third-party library imports
@@ -62,10 +62,8 @@ class Controller:
                 t0 = batch.begin_tstamp
                 t1 = end_tstamp
                 # We count summaries even if the upd_flag is False
-                q = (
-                    select(func.count(SummaryView.session)).where(
-                        SummaryView.session.between(t0, t1)
-                    ) 
+                q = select(func.count(SummaryView.session)).where(
+                    SummaryView.session.between(t0, t1)
                 )
                 N = (await session.scalars(q)).one()
                 batch.end_tstamp = end_tstamp
@@ -86,22 +84,32 @@ class Controller:
         all_summaries = set()
         async with self.Session() as session:
             async with session.begin():
-                q = select(Batch.begin_tstamp, Batch.end_tstamp).where(Batch.end_tstamp.is_not(None))
+                q = select(Batch.begin_tstamp, Batch.end_tstamp).where(
+                    Batch.end_tstamp.is_not(None)
+                )
                 batches = (await session.execute(q)).all()
                 q = select(SummaryView.session)
                 all_summaries = set((await session.scalars(q)).all())
                 for t0, t1 in batches:
-                    q = select(SummaryView.session).where(SummaryView.session.between(t0,t1))
+                    q = select(SummaryView.session).where(SummaryView.session.between(t0, t1))
                     summaries = (await session.scalars(q)).all()
                     in_batches.update(set(summaries))
         return all_summaries - in_batches
 
-    async def view(self): -> Iterable[Batch]:
-        HEADERS = ("Begin (UTC)","End (UTC)","# Sessions","Emailed?","Comment")
-        cursor =  batch_view_iterable(connection)
-
-    paging(cursor, HEADERS, size=100)
-
+    async def view(
+        self,
+    ) -> Iterable[Tuple[datetime, datetime, bool, int, str]]:
+        async with self.Session() as session:
+            async with session.begin():
+                q = select(
+                    Batch.begin_tstamp,
+                    Batch.end_tstamp,
+                    Batch.calibrations,
+                    Batch.email_sent,
+                    Batch.comment,
+                ).order_by(Batch.begin_tstamp.desc())
+                batches = (await session.execute(q)).all()
+        return batches
 
     async def export(self, path: str) -> None:
         pass

@@ -92,8 +92,8 @@ async def cli_batch_orphan(args: Namespace) -> None:
 async def cli_batch_view(args: Namespace) -> None:
     batch = Controller()
     HEADERS = ("Begin (UTC)","End (UTC)","# Sessions","Emailed?","Comment")
-    iterable = batch.view()
-    paging(iterable, HEADERS, size=100)
+    iterable = await batch.view()
+    paging(iterable, HEADERS, page_size=args.page_size, table_fmt=args.table_format)
 
 
 async def cli_batch_export(args: Namespace) -> None:
@@ -130,8 +130,15 @@ def orphan_add_args(parser: ArgumentParser):
 
 def view_add_args(parser: ArgumentParser):
     parser.add_argument(
-        "--list",
-        action="store_true",
+        "--page-size",
+        type=int,
+        default=10,
+        help="Table page size",
+    )
+    parser.add_argument(
+        "--table-format",
+        choices=("simple","grid"),
+        default="simple",
         help="List batches",
     )
     parser.set_defaults(func=cli_batch_view)

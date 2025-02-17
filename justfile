@@ -160,6 +160,12 @@ orphan  verbose="" trace="":
     set -euxo pipefail
     uv run zp-orphan --console {{verbose}} {{trace}}
 
+# Close current open batch
+view  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-view --console {{verbose}} {{trace}}
+
 
 # =======================================================================
 
