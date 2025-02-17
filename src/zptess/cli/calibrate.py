@@ -32,6 +32,7 @@ from .. import __version__
 from .util import parser as prs
 from .util.misc import log_phot_info, update_zp
 from ..lib.controller.photometer import VolatileCalibrator, PersistentCalibrator, Event, RoundStatsType
+from ..lib.controller.batch import Controller as BatchController
 from ..lib import CentralTendency
 
 # ----------------
@@ -200,7 +201,15 @@ async def cli_calib_test(args: Namespace) -> None:
         controller = PersistentCalibrator(
             ref_params=ref_params, test_params=test_params, common_params=common_params
         )
-        log.info("Logging results to a database")
+        open_batch = await (BatchController()).is_open()
+        if not open_batch:
+            if args.no_batch:
+                log.warn("Persistent calibration without an open batch")
+            else:
+                raise RuntimeError("Persistent calibration without an open batch")
+        else:
+            log.info("Logging results to a database")
+
     else:
         controller = VolatileCalibrator(
             ref_params=ref_params, test_params=test_params, common_params=common_params
@@ -253,6 +262,7 @@ def add_args(parser: ArgumentParser):
             prs.author(),
             prs.ref(),
             prs.test(),
+            prs.no_bat(),
         ],
         help="Calibrate test photometer",
     )

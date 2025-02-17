@@ -274,7 +274,20 @@ def stats() -> ArgumentParser:
     return parser
 
 
+def no_bat() -> ArgumentParser:
+    parser = ArgumentParser(add_help=False)
+    parser.add_argument(
+        "-n",
+        "--no-batch",
+        default=False,
+        action="store_true",
+        help="Persistent calibration without an open batch (default %(default)s)",
+    )
+    return parser
+
+# ------------------------------
 # These are for batch management
+# ------------------------------
 
 
 def comm() -> ArgumentParser:
