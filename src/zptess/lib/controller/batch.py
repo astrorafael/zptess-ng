@@ -96,6 +96,12 @@ class Controller:
                     in_batches.update(set(summaries))
         return all_summaries - in_batches
 
+    async def view(self): -> Iterable[Batch]:
+        HEADERS = ("Begin (UTC)","End (UTC)","# Sessions","Emailed?","Comment")
+        cursor =  batch_view_iterable(connection)
+
+    paging(cursor, HEADERS, size=100)
+
 
     async def export(self, path: str) -> None:
         pass

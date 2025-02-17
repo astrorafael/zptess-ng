@@ -19,6 +19,7 @@ from lica.sqlalchemy import sqa_logging
 from lica.validators import vdate, vdir
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
+from lica.tabulate import paging
 
 # --------------
 # local imports
@@ -88,6 +89,12 @@ async def cli_batch_orphan(args: Namespace) -> None:
         for i, item in enumerate(sorted(orphans), start=1):
             log.info("[%03d] %s", i, item)
 
+async def cli_batch_view(args: Namespace) -> None:
+    batch = Controller()
+    HEADERS = ("Begin (UTC)","End (UTC)","# Sessions","Emailed?","Comment")
+    iterable = batch.view()
+    paging(iterable, HEADERS, size=100)
+
 
 async def cli_batch_export(args: Namespace) -> None:
     pass
@@ -120,6 +127,14 @@ def orphan_add_args(parser: ArgumentParser):
         help="List orphan summaries one by one",
     )
     parser.set_defaults(func=cli_batch_orphan)
+
+def view_add_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List batches",
+    )
+    parser.set_defaults(func=cli_batch_view)
 
 
 def export_add_args(parser: ArgumentParser):
@@ -191,6 +206,16 @@ def orphan():
         name=__name__,
         version=__version__,
         description="Number of orphan calibrations that do not belong to a batch",
+    )
+
+def view():
+    """The main entry point specified by pyproject.toml"""
+    execute(
+        main_func=cli_main,
+        add_args_func=view_add_args,
+        name=__name__,
+        version=__version__,
+        description="List calibration batches",
     )
 
 

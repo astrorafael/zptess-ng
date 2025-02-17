@@ -30,7 +30,7 @@ dependencies = [
   #'asyncstdlib', # async counterparts such as aenumerate()
   # synchronous style publish/subscribe mechanism
   "pypubsub",
-  "lica[photometer]>=1.0.16",
+  "lica[photometer,tabular]>=1.0.16",
 ]
 
 [project.urls]
@@ -53,6 +53,7 @@ zp-begin = "zptess.cli.tools:begin"
 zp-end = "zptess.cli.tools:end"
 zp-purge = "zptess.cli.tools:purge"
 zp-orphan = "zptess.cli.tools:orphan"
+zp-view = "zptess.cli.tools:view"
 zp-export = "zptess.cli.tools:export"
 
 [build-system]

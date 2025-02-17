@@ -47,9 +47,7 @@ lica-dev version="main":
     #!/usr/bin/env bash
     set -exuo pipefail
     echo "Removing previous LICA dependency"
-    uv add aiohttp
-    uv add pyserial-asyncio
-    uv add aioserial
+    uv add aiohttp pyserial-asyncio aioserial tabulate
     uv remove lica || echo "Ignoring non existing LICA library";
     if [[ "{{ version }}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         echo "Adding LICA source library --tag {{ version }}"; 
@@ -66,10 +64,8 @@ lica-rel version="":
     echo "Removing previous LICA dependency"
     uv remove lica || echo "Ignoring non existing LICA library";
     echo "Adding LICA library {{ version }}";
-    uv add --refresh-package lica lica[photometer] {{ version }};
-    uv remove aiohttp
-    uv remove aioserial
-    uv remove pyserial-asyncio
+    uv add --refresh-package lica lica[photometer,tabular] {{ version }};
+    uv remove aiohttp aioserial pyserial-asyncio tabulate
 
 
 # Backup .env to storage unit
