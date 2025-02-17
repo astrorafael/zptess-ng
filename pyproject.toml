@@ -52,6 +52,7 @@ zp-write =  "zptess.cli.writer:main"
 zp-begin = "zptess.cli.tools:begin"
 zp-end = "zptess.cli.tools:end"
 zp-purge = "zptess.cli.tools:purge"
+zp-orphan = "zptess.cli.tools:orphan"
 zp-export = "zptess.cli.tools:export"
 
 [build-system]
