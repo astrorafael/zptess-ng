@@ -128,10 +128,10 @@ async def _load_summary(path: str, async_session: async_sessionmaker[AsyncSessio
                         row[key] = float(row[key]) if row[key] else None
                     for key in ("zero_point_method", "freq_method", "nrounds", "comment"):
                         row[key] = None if not row[key] else row[key]
-                    q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
-                    summary = Summary(**row)
                     log.info("[%9s - %s]Processing row. %s", name, mac, row)
+                    q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
                     phot = (await session.scalars(q)).one()
+                    summary = Summary(**row)
                     summary.photometer = phot
                     log.info("%r", summary)
                     session.add(summary)

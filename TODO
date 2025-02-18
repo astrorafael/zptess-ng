@@ -1,2 +1,3 @@
-* Tools. Unico fichero con multoples entru points
-* pyserial-asyncio en lugar de aioserial
+* qa() los distintos N de los summaruies:
+	- stored in batch_v vs cuenta de timestamps
+	- stored in batch_t vs len(summaries) // 2

@@ -208,7 +208,8 @@ async def cli_calib_test(args: Namespace) -> None:
             else:
                 raise RuntimeError("Persistent calibration without an open batch")
         else:
-            log.info("Logging results to a database")
+            batch = await (BatchController()).get_open()
+            log.info("Logging results to a database. Batch is %s", batch)
 
     else:
         controller = VolatileCalibrator(

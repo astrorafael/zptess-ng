@@ -133,7 +133,6 @@ read verbose="" trace="" which="test" N="10" :
 calib verbose="" trace="" persist="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    cp zptess.db zptess-prudb.db
     uv run zp-calib --console {{verbose}} {{trace}} test -b 9 -R 3 -P 5 {{persist}}
 
 # Open a new batch

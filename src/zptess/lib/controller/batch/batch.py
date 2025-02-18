@@ -43,23 +43,24 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 
 def get_paths(directory: str) -> Iterable:
-    '''Get all file paths in a list''' 
+    """Get all file paths in a list"""
     file_paths = list()
-    # crawling through directory and subdirectories 
+    # crawling through directory and subdirectories
     for root, directories, files in os.walk(directory):
-        root = os.path.basename(root) # Needs a change of cwd later on if we do this
-        for filename in files: 
-            filepath = os.path.join(root, filename) 
-            file_paths.append(filepath) 
-    return file_paths         
+        root = os.path.basename(root)  # Needs a change of cwd later on if we do this
+        for filename in files:
+            filepath = os.path.join(root, filename)
+            file_paths.append(filepath)
+    return file_paths
+
 
 def pack(base_dir: str, zip_file: str):
-    '''Pack all files in the ZIP file given by options'''
+    """Pack all files in the ZIP file given by options"""
     paths = get_paths(base_dir)
     log.info(f"Creating ZIP File: '{os.path.basename(zip_file)}'")
-    with zipfile.ZipFile(zip_file, 'w') as myzip:
-        for myfile in paths: 
-            myzip.write(myfile) 
+    with zipfile.ZipFile(zip_file, "w") as myzip:
+        for myfile in paths:
+            myzip.write(myfile)
 
 
 class Controller:
@@ -80,6 +81,11 @@ class Controller:
     async def is_open(self) -> bool:
         async with self.Session() as session:
             return await self._is_open(session)
+
+    async def get_open(self) -> Batch:
+        """Used by the persistent controller"""
+        async with self.Session() as session:
+            return await self._latest(session)
 
     async def close(self) -> Tuple[datetime, datetime, int]:
         end_tstamp = datetime.now(timezone.utc).replace(microsecond=0)
@@ -152,6 +158,7 @@ class Controller:
     ) -> bool:
         q = select(func.count(Batch.begin_tstamp)).where(Batch.end_tstamp.is_(None))
         count = (await session.scalars(q)).one()
+        log.info("COUNT = %d", count)
         return count > 0
 
     async def _latest(

@@ -28,9 +28,10 @@ from lica.sqlalchemy.asyncio.dbase import AsyncSession
 # local imports
 # -------------
 
+from ..batch import get_open_batch
 from .volatile import Controller as VolatileCalibrator
 from .types import Event
-from ...dbase.model import Photometer, Summary, Round, Sample
+from ...dbase.model import Photometer, Batch, Summary, Round, Sample
 from ... import Calibration
 from .... import __version__
 
@@ -67,6 +68,7 @@ class Controller(VolatileCalibrator):
     ):
         super().__init__(ref_params, test_params, common_params)
         self.db_queue = asyncio.Queue()
+        self.batch = None
 
     # ==========
     # Public API
@@ -74,6 +76,8 @@ class Controller(VolatileCalibrator):
 
     async def init(self) -> None:
         await super().init()
+        async with self.Session() as session:
+            self.batch = await get_open_batch(session) 
         self.db_task = asyncio.create_task(self.db_writer_task())
 
     async def calibrate(self) -> float:
@@ -205,7 +209,8 @@ class Controller(VolatileCalibrator):
                 freq_method=self.temp_summary["best_freq_method"][role],
                 mag=self.temp_summary["best_mag"][role],
                 nrounds=self.nrounds,
-                photometer=phot,  # This is really a 1:N relationship
+                photometer=phot,  # This is really a many to one relationship
+                batch=self.batch  # Optional many-to-one relationships (NULLS are allowed)
             )
             session.add(db_summary[role])
         return db_summary
