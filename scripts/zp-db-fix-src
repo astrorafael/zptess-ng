@@ -21,6 +21,12 @@ sqlite3 ${DATABASE} <<EOF
 .echo on
 BEGIN;
 
+----------------------
+-- Purge empty batches
+----------------------
+
+DELETE FROM batch_t WHERE calibrations = 0;
+
 --------------------------------------------------------------
 -- Fix zptess bug: 20.44 => 20.50 as ficticious ZP in rounds_t
 --------------------------------------------------------------

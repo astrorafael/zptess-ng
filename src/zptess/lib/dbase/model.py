@@ -145,7 +145,7 @@ class Batch(Model):
     summaries: Mapped[List["Summary"]] = relationship(back_populates="batch")
 
     def __repr__(self) -> str:
-        return f"Batch(begin={datestr(self.begin_tstamp)}, end={datestr(self.end_tstamp)}, N={self.calibrations!r}, emailed={self.email_sent!r})"
+        return f"Batch(begin={datestr(self.begin_tstamp)}, end={datestr(self.end_tstamp)})"
 
 
 class Photometer(Model):
