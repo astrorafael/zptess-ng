@@ -85,6 +85,11 @@ class Controller:
     async def get_open(self) -> Batch:
         """Used by the persistent controller"""
         async with self.Session() as session:
+            return await self._get_open(session)
+
+    async def latest(self) -> Batch:
+        """Used by the persistent controller"""
+        async with self.Session() as session:
             return await self._latest(session)
 
     async def close(self) -> Tuple[datetime, datetime, int]:
@@ -92,12 +97,14 @@ class Controller:
         async with self.Session() as session:
             async with session.begin():
                 await self._assert_open(session)
-                batch = await self._latest(session)
+                batch = await self._get_open(session)
                 t0 = batch.begin_tstamp
                 t1 = end_tstamp
                 # We count summaries even if the upd_flag is False
-                q = select(func.count("*")).select_from(SummaryView).where(
-                    SummaryView.session.between(t0, t1)
+                q = (
+                    select(func.count("*"))
+                    .select_from(SummaryView)
+                    .where(SummaryView.session.between(t0, t1))
                 )
                 N = (await session.scalars(q)).one()
                 batch.end_tstamp = end_tstamp
@@ -160,12 +167,21 @@ class Controller:
         count = (await session.scalars(q)).one()
         return count > 0
 
-    async def _latest(
+    async def _get_open(
         self,
         session: AsyncSession,
     ) -> Batch | None:
         q = select(Batch).where(Batch.end_tstamp.is_(None))
         batch = (await session.scalars(q)).one_or_none()
+        return batch
+
+    async def _latest(
+        self,
+        session: AsyncSession,
+    ) -> Batch | None:
+        sub_q = select(func.max(Batch.begin_tstamp))
+        q = select(Batch).where(Batch.begin_tstamp.in_(sub_q))
+        batch = (await session.scalars(q)).one()
         return batch
 
     async def _assert_closed(

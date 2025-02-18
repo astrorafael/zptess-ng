@@ -96,7 +96,9 @@ async def cli_batch_view(args: Namespace) -> None:
 
 
 async def cli_batch_export(args: Namespace) -> None:
-    pass
+    batch = Controller()
+    la = await batch.latest()
+    log.info(la)
 
 
 def add_args(parser: ArgumentParser):
