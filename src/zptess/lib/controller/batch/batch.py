@@ -96,7 +96,7 @@ class Controller:
                 t0 = batch.begin_tstamp
                 t1 = end_tstamp
                 # We count summaries even if the upd_flag is False
-                q = select(func.count(SummaryView.session)).where(
+                q = select(func.count("*")).select_from(SummaryView).where(
                     SummaryView.session.between(t0, t1)
                 )
                 N = (await session.scalars(q)).one()
@@ -156,9 +156,8 @@ class Controller:
         self,
         session: AsyncSession,
     ) -> bool:
-        q = select(func.count(Batch.begin_tstamp)).where(Batch.end_tstamp.is_(None))
+        q = select(func.count("*")).select_from(Batch).where(Batch.end_tstamp.is_(None))
         count = (await session.scalars(q)).one()
-        log.info("COUNT = %d", count)
         return count > 0
 
     async def _latest(
