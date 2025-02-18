@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from lica.sqlalchemy import sqa_logging
-from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
+from lica.sqlalchemy.asyncio.dbase import AsyncSession
 from lica.asyncio.cli import execute
 
 # --------------
@@ -95,7 +95,7 @@ async def load_config(path: str, async_session: async_sessionmaker[AsyncSessionC
                     session.add(config)
 
 
-async def load_photometer(path:str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def load_photometer(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     async with async_session() as session:
         async with session.begin():
             log.info("loading photometer from %s", path)
@@ -136,6 +136,7 @@ async def _load_summary(path: str, async_session: async_sessionmaker[AsyncSessio
                     log.info("%r", summary)
                     session.add(summary)
 
+
 async def _assign_batches(async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     async with async_session() as session:
         async with session.begin():
@@ -152,12 +153,15 @@ async def _assign_batches(async_session: async_sessionmaker[AsyncSessionClass]) 
                     summary.batch = batch
                     session.add(summary)
 
+
 async def load_summary(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     await _load_summary(path, async_session)
     await _assign_batches(async_session)
 
+
 async def assign_batches(async_session: async_sessionmaker[AsyncSessionClass]) -> None:
-    await _assign_batches(async_session)             
+    await _assign_batches(async_session)
+
 
 async def load_rounds(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     async with async_session() as session:
@@ -262,34 +266,32 @@ TABLE = {
 
 
 async def loader(args) -> None:
-    async with engine.begin():
-        if args.command not in ("all", "nosamples", "norounds", "assign"):
-            func = TABLE[args.command]
-            path = os.path.join(args.input_dir, args.command + ".csv")
-            await func(path, AsyncSession)
-            if args.command == "all":
-                assert (
-                    ORPHANED_SESSIONS_IN_ROUNDS == ORPHANED_SESSIONS_IN_SAMPLES
-                ), f"Difference is {ORPHANED_SESSIONS_IN_ROUNDS - ORPHANED_SESSIONS_IN_SAMPLES}"
-        elif args.command == "norounds":
-            for name in ("config", "batch", "photometer", "summary"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-        elif args.command == "nosamples":
-            for name in ("config", "batch", "photometer", "summary", "rounds"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-        elif args.command == "assign":
+    if args.command not in ("all", "nosamples", "norounds", "assign"):
+        func = TABLE[args.command]
+        path = os.path.join(args.input_dir, args.command + ".csv")
+        await func(path, AsyncSession)
+        if args.command == "all":
+            assert ORPHANED_SESSIONS_IN_ROUNDS == ORPHANED_SESSIONS_IN_SAMPLES, (
+                f"Difference is {ORPHANED_SESSIONS_IN_ROUNDS - ORPHANED_SESSIONS_IN_SAMPLES}"
+            )
+    elif args.command == "norounds":
+        for name in ("config", "batch", "photometer", "summary"):
+            path = os.path.join(args.input_dir, name + ".csv")
             func = TABLE[name]
-            await func(AsyncSession)
-        else:
-            for name in ("config", "batch", "photometer", "summary", "rounds", "samples"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-    await engine.dispose()
+            await func(path, AsyncSession)
+    elif args.command == "nosamples":
+        for name in ("config", "batch", "photometer", "summary", "rounds"):
+            path = os.path.join(args.input_dir, name + ".csv")
+            func = TABLE[name]
+            await func(path, AsyncSession)
+    elif args.command == "assign":
+        func = TABLE[name]
+        await func(AsyncSession)
+    else:
+        for name in ("config", "batch", "photometer", "summary", "rounds", "samples"):
+            path = os.path.join(args.input_dir, name + ".csv")
+            func = TABLE[name]
+            await func(path, AsyncSession)
 
 
 def add_args(parser: ArgumentParser) -> None:
