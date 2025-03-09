@@ -58,15 +58,14 @@ lica-dev version="main":
     fi
 
 # Adds lica release library as dependency with a given version
-lica-rel version="":
+lica-rel:
     #!/usr/bin/env bash
     set -exuo pipefail
     echo "Removing previous LICA dependency"
-    uv remove lica || echo "Ignoring non existing LICA library";
-    echo "Adding LICA library {{ version }}";
-    uv add --refresh-package lica lica[photometer,tabular] {{ version }};
+    uv remove lica
+    echo "Adding release version of LICA library {{ version }}";
+    uv add --refresh-package lica lica[photometer,tabular];
     uv remove aiohttp aioserial pyserial-asyncio tabulate
-
 
 # Backup .env to storage unit
 env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, "env", project))
