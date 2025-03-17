@@ -134,6 +134,7 @@ class Config(Model):
 
 class Batch(Model):
     __tablename__ = "batch_t"
+    
     id: Mapped[int] = mapped_column(primary_key=True)
     begin_tstamp: Mapped[datetime] = mapped_column(DateTime, unique=True)
     end_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -327,17 +328,13 @@ summary_view = view(
         Summary.upd_flag.label("upd_flag"),
         func.round(Summary.zero_point, 2).label("zero_point"),
         func.round(Summary.zp_offset, 2).label("zp_offset"),
-        func.round((Summary.zero_point - Summary.zp_offset), 2).label(
-            "raw_zero_point"
-        ),
+        func.round((Summary.zero_point - Summary.zp_offset), 2).label("raw_zero_point"),
         Summary.calibration.label("calibration"),
         func.round(Summary.prev_zp, 2).label("prev_zp"),
         func.round(Summary.freq, 3).label("freq"),
         func.round(Summary.mag, 2).label("mag"),
         Photometer.freq_offset.label("freq_offset"),
-        func.round((Ref_t.mag - Summary.mag), 2).label(
-            "mag_diff"
-        ),
+        func.round((Ref_t.mag - Summary.mag), 2).label("mag_diff"),
         Summary.zero_point_method.label("zero_point_method"),
         Summary.freq_method.label("freq_method"),
         Summary.calversion.label("calversion"),
@@ -346,7 +343,6 @@ summary_view = view(
     .join(Ref_t, Ref_t.session == Summary.session)
     .join(Photometer, Photometer.id == Summary.phot_id)
     .where(Ref_t.role == Role.REF, Summary.role == Role.TEST),
-
 )
 
 # Another view for debugging data
@@ -359,7 +355,7 @@ rounds_view = view(
         Photometer.mac.label("mac"),
         Photometer.model.label("model"),
         Summary.session.label("session"),
-        Round.__table__.c.round.label("round"), # Problems with the 'round' attribute name'
+        Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
         Round.role.label("role"),
         Round.freq.label("freq"),
         Round.central.label("central"),

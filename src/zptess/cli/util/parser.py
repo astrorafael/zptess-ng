@@ -337,7 +337,7 @@ def expor() -> ArgumentParser:
         type=vdate,
         metavar="<YYYY-MM-DDTHH:MM:SS>",
         default=None,
-        help="by begin",
+        help="by begin date",
     )
     ex1.add_argument("-l", "--latest", action="store_true", help="latest closed batch")
     ex1.add_argument("-a", "--all", action="store_true", help="all closed batches")

@@ -87,10 +87,14 @@ class Controller:
         async with self.Session() as session:
             return await self._get_open(session)
 
-    async def latest(self) -> Batch:
+    async def latest(self) -> Batch | None:
         """Used by the persistent controller"""
         async with self.Session() as session:
             return await self._latest(session)
+
+    async def by_date(self, tstamp: datetime) -> Batch | None:
+        async with self.Session() as session:
+            return await self._by_date(session, tstamp)
 
     async def close(self) -> Tuple[datetime, datetime, int]:
         end_tstamp = datetime.now(timezone.utc).replace(microsecond=0)
@@ -182,6 +186,15 @@ class Controller:
         sub_q = select(func.max(Batch.begin_tstamp))
         q = select(Batch).where(Batch.begin_tstamp.in_(sub_q))
         batch = (await session.scalars(q)).one()
+        return batch
+
+    async def _by_date(
+        self,
+        session: AsyncSession,
+        tstamp: datetime,
+    ) -> Batch | None:
+        q = select(Batch).where(Batch.begin_tstamp == tstamp)
+        batch = (await session.scalars(q)).one_or_none()
         return batch
 
     async def _assert_closed(

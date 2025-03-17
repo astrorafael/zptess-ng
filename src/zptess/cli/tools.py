@@ -8,6 +8,7 @@
 # System wide imports
 # -------------------
 
+import os
 import logging
 from argparse import Namespace, ArgumentParser
 
@@ -96,9 +97,23 @@ async def cli_batch_view(args: Namespace) -> None:
 
 
 async def cli_batch_export(args: Namespace) -> None:
-    batch = Controller()
-    la = await batch.latest()
-    log.info(la)
+    batch_ctrl = Controller()
+    if args.begin_date:
+        batch = await batch_ctrl.by_date(args.begin_date)
+    elif args.latest:
+        batch = await batch_ctrl.latest()
+    else:
+       raise NotImplementedError("Not yet available, please, be patient ...")
+    if batch is None:
+        log.info("No batch is available")
+        return
+    log.info(batch)
+    filename = f"from_{batch.begin_tstamp}_to_{batch.end_tstamp}".replace('-','').replace(':','')
+    export_dir = os.path.join(args.base_dir, filename)
+    log.info("exporting to directory %s", export_dir)
+    os.makedirs(export_dir, exist_ok=True)
+
+
 
 
 def add_args(parser: ArgumentParser):

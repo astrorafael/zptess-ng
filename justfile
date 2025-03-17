@@ -58,7 +58,7 @@ lica-dev version="main":
     fi
 
 # Adds lica release library as dependency with a given version
-lica-rel:
+lica-rel version:
     #!/usr/bin/env bash
     set -exuo pipefail
     echo "Removing previous LICA dependency"
@@ -168,7 +168,7 @@ view  verbose="" trace="":
 export  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-batch --console {{verbose}} {{trace}} export --all
+    uv run zp-batch --console {{verbose}} {{trace}} export --latest
 
 
 # =======================================================================
