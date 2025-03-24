@@ -33,7 +33,7 @@ from .util import parser as prs
 
 
 from ..lib.controller.batch import Controller
-from ..lib.dbase.model import Round, Sample, Batch, SummaryView
+from ..lib.dbase.model import Round, Sample, Batch, SummaryView, RoundView
 from sqlalchemy import select, func, cast, Integer
 
 # ----------------
@@ -41,7 +41,7 @@ from sqlalchemy import select, func, cast, Integer
 # ----------------
 
 TSTAMP_FMT = "%Y-%m-%dT%H:%M:%S"
-EXPORT_HEADERS = (
+SUMMARY_EXPORT_HEADERS = (
     "model",
     "name",
     "mac",
@@ -65,6 +65,25 @@ EXPORT_HEADERS = (
     "collector",
     "author",
     "comment",
+)
+
+ROUND_EXPORT_HEADERS = (
+    "model",
+    "name",
+    "mac",
+    "model",
+    "session",
+    "role,round",
+    "freq",
+    "stddev",
+    "central",
+    "mag",
+    "zp_fict",
+    "zero_point",
+    "nsamples",
+    "duration",
+    "begin_tstamp",
+    "end_tstamp",
 )
 
 # -----------------------
@@ -122,20 +141,62 @@ async def query_summaries(begin_tstamp: datetime, end_tstamp: datetime) -> Seque
             summaries = (await session.execute(q)).all()
     return summaries
 
-async def export_summaries(base_dir: str, batch: Batch) -> None:
+
+async def export_summaries(base_dir: str, filename_preffix: str, batch: Batch) -> None:
     log.info("Fetching summaries for batch %s", batch)
-    summaries = await query_summaries( batch.begin_tstamp, batch.end_tstamp)
-    filename = f"from_{batch.begin_tstamp}_to_{batch.end_tstamp}".replace("-", "").replace(":", "")
-    export_dir = os.path.join(base_dir, filename)
-    log.info("exporting to directory %s", export_dir)
-    os.makedirs(export_dir, exist_ok=True)
-    csv_path = os.path.join(export_dir, f"summary_{filename}.csv")
+    summaries = await query_summaries(batch.begin_tstamp, batch.end_tstamp)
+    csv_path = os.path.join(base_dir, f"summary_{filename_preffix}.csv")
     log.info("exporting %s", os.path.basename(csv_path))
     with open(csv_path, "w") as csv_file:
-        csv_writer = csv.writer(csv_file, delimiter=';')
-        csv_writer.writerow(EXPORT_HEADERS)
+        csv_writer = csv.writer(csv_file, delimiter=";")
+        csv_writer.writerow(SUMMARY_EXPORT_HEADERS)
         for summary in summaries:
             csv_writer.writerow(summary)
+
+
+async def query_rounds(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[RoundView]:
+    async with AsyncSession() as session:
+        async with session.begin():
+            t0 = begin_tstamp
+            t1 = end_tstamp
+            q = (
+                select(
+                    RoundView.model,
+                    RoundView.name,
+                    RoundView.mac,
+                    RoundView.model,
+                    RoundView.session,
+                    RoundView.role,
+                    RoundView.round,
+                    RoundView.freq,
+                    RoundView.stddev,
+                    RoundView.central,
+                    RoundView.mag,
+                    RoundView.zp_fict,
+                    RoundView.zero_point,
+                    RoundView.nsamples,
+                    RoundView.duration,
+                    RoundView.begin_tstamp,
+                    RoundView.end_tstamp,
+                )
+                .where(RoundView.session.between(t0, t1), RoundView.upd_flag == True)  # noqa: E712
+                .order_by(cast(func.substr(RoundView.name, 6), Integer))
+            )
+            rounds = (await session.execute(q)).all()
+    return rounds
+
+
+async def export_rounds(base_dir: str, filename_preffix: str,  batch: Batch) -> None:
+    log.info("Fetching rounds for batch %s", batch)
+    rounds = await query_rounds(batch.begin_tstamp, batch.end_tstamp)
+    csv_path = os.path.join(base_dir, f"rounds_{filename_preffix}.csv")
+    log.info("exporting %s", os.path.basename(csv_path))
+    with open(csv_path, "w") as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=";")
+        csv_writer.writerow(ROUND_EXPORT_HEADERS)
+        for round_ in rounds:
+            csv_writer.writerow(round_)
+
 
 # -----------------
 # CLI API functions
@@ -192,11 +253,14 @@ async def cli_batch_export(args: Namespace) -> None:
     if batch is None:
         log.info("No batch is available")
         return
-    await export_summaries(args.base_dir, batch)
- 
-
-
-    
+    t0 = batch.begin_tstamp.strftime("%Y%m%d")
+    t1 = batch.end_tstamp.strftime("%Y%m%d")
+    filename_preffix = f"from_{t0}_to_{t1}"
+    export_dir = os.path.join(args.base_dir, filename_preffix)
+    log.info("exporting to directory %s", export_dir)
+    os.makedirs(export_dir, exist_ok=True)
+    await export_summaries(export_dir, filename_preffix, batch)
+    await export_rounds(export_dir, filename_preffix, batch)
 
 
 def add_args(parser: ArgumentParser):

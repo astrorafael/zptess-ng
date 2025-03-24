@@ -355,7 +355,7 @@ summary_view = view(
     .where(Ref_t.role == Role.REF, Summary.role == Role.TEST),
 )
 
-# Another view for debugging data
+# Another view for exporting data
 rounds_view = view(
     name="rounds_v",
     metadata=Model.metadata,
@@ -367,14 +367,14 @@ rounds_view = view(
         Summary.session.label("session"),
         Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
         Round.role.label("role"),
-        Round.freq.label("freq"),
+        func.round(Round.freq, 3).label("freq"),
         Round.central.label("central"),
-        Round.stddev.label("stddev"),
-        Round.mag.label("mag"),
+        func.round(Round.stddev, 4).label("stddev"), 
+        func.round(Round.mag, 3).label("mag"),
         Round.zp_fict.label("zp_fict"),
         Round.zero_point.label("zero_point"),
         Round.nsamples.label("nsamples"),
-        Round.duration.label("duration"),
+        func.round(Round.duration, 3).label("duration"),
         Round.begin_tstamp.label("begin_tstamp"),
         Round.end_tstamp.label("end_tstamp"),
         Summary.upd_flag.label("upd_flag"),
@@ -392,3 +392,9 @@ class SummaryView(Model):
 
     def __repr__(self) -> str:
         return f"SummaryView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, nrounds={self.nrounds!r}, zp={self.zero_point!r}, calib={self.calibration!r}, freq={self.freq!r})"
+
+class RoundView(Model):
+    __table__ = rounds_view
+
+    def __repr__(self) -> str:
+        return f"RoundsView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, freq={self.freq!r}, method={self.central!r})"
