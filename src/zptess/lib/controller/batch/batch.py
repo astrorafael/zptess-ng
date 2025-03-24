@@ -87,12 +87,12 @@ class Controller:
         async with self.Session() as session:
             return await self._get_open(session)
 
-    async def latest(self) -> Batch | None:
+    async def latest(self, load_summaries: bool = False) -> Batch | None:
         """Used by the persistent controller"""
         async with self.Session() as session:
-            return await self._latest(session)
+            return await self._latest(session, load_summaries)
 
-    async def by_date(self, tstamp: datetime) -> Batch | None:
+    async def by_date(self, tstamp: datetime, load_summaries: bool = False) -> Batch | None:
         async with self.Session() as session:
             return await self._by_date(session, tstamp)
 
@@ -182,19 +182,29 @@ class Controller:
     async def _latest(
         self,
         session: AsyncSession,
+        load_summaries: bool,
     ) -> Batch | None:
         sub_q = select(func.max(Batch.begin_tstamp))
         q = select(Batch).where(Batch.begin_tstamp.in_(sub_q))
         batch = (await session.scalars(q)).one()
+        if load_summaries:
+            summaries = await batch.awaitable_attrs.summaries
+            for summary in summaries:
+                await summary.awaitable_attrs.photometer
         return batch
 
     async def _by_date(
         self,
         session: AsyncSession,
         tstamp: datetime,
+        load_summaries: bool,
     ) -> Batch | None:
         q = select(Batch).where(Batch.begin_tstamp == tstamp)
         batch = (await session.scalars(q)).one_or_none()
+        if batch and load_summaries:
+            summaries = await batch.awaitable_attrs.summaries
+            for summary in summaries:
+                await summary.awaitable_attrs.photometer
         return batch
 
     async def _assert_closed(
