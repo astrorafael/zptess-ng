@@ -9,6 +9,7 @@
 # -------------------
 
 import os
+import csv
 import logging
 from argparse import Namespace, ArgumentParser
 
@@ -17,6 +18,7 @@ from argparse import Namespace, ArgumentParser
 # -------------------
 
 from lica.sqlalchemy import sqa_logging
+from lica.sqlalchemy.asyncio.dbase import AsyncSession
 from lica.asyncio.cli import execute
 from lica.tabulate import paging
 
@@ -26,13 +28,42 @@ from lica.tabulate import paging
 
 from .. import __version__
 from .util import parser as prs
+
+
 from ..lib.controller.batch import Controller
+from ..lib.dbase.model import Photometer, Summary, Round, Sample, SummaryView
+from sqlalchemy import select, func, cast, Integer
 
 # ----------------
 # Module constants
 # ----------------
 
 TSTAMP_FMT = "%Y-%m-%dT%H:%M:%S"
+EXPORT_HEADERS = (
+    "model",
+    "name",
+    "mac",
+    "firmware",
+    "sensor",
+    "session",
+    "calibration",
+    "calversion",
+    "ref_mag",
+    "ref_freq",
+    "test_mag",
+    "test_freq",
+    "mag_diff",
+    "raw_zero_point",
+    "offset",
+    "zero_point",
+    "prev_zp",
+    "filter",
+    "plug",
+    "box",
+    "collector",
+    "author",
+    "comment",
+)
 
 # -----------------------
 # Module global variables
@@ -103,17 +134,58 @@ async def cli_batch_export(args: Namespace) -> None:
     elif args.latest:
         batch = await batch_ctrl.latest()
     else:
-       raise NotImplementedError("Not yet available, please, be patient ...")
+        raise NotImplementedError("Not yet available, please, be patient ...")
     if batch is None:
         log.info("No batch is available")
         return
-    log.info(batch)
-    filename = f"from_{batch.begin_tstamp}_to_{batch.end_tstamp}".replace('-','').replace(':','')
+    filename = f"from_{batch.begin_tstamp}_to_{batch.end_tstamp}".replace("-", "").replace(":", "")
     export_dir = os.path.join(args.base_dir, filename)
     log.info("exporting to directory %s", export_dir)
     os.makedirs(export_dir, exist_ok=True)
+    csv_path = os.path.join(export_dir, f"summary_{filename}.csv")
+    log.info("Fetching summaries for batch %s", batch)
+    async with AsyncSession() as session:
+        async with session.begin():
+            t0 = batch.begin_tstamp
+            t1 = batch.end_tstamp
+            q = (
+                select(
+                    SummaryView.model,
+                    SummaryView.name,
+                    SummaryView.mac,
+                    SummaryView.firmware,
+                    SummaryView.sensor,
+                    SummaryView.session,
+                    SummaryView.calibration,
+                    SummaryView.calversion,
+                    SummaryView.ref_mag,
+                    SummaryView.ref_freq,
+                    SummaryView.test_freq,
+                    SummaryView.test_mag,
+                    SummaryView.mag_diff,
+                    SummaryView.raw_zero_point,
+                    SummaryView.zp_offset,
+                    SummaryView.zero_point,
+                    SummaryView.prev_zp,
+                    SummaryView.filter,
+                    SummaryView.plug,
+                    SummaryView.box,
+                    SummaryView.collector,
+                    SummaryView.author,
+                    SummaryView.comment,
+                )
+                .where(SummaryView.session.between(t0, t1), SummaryView.upd_flag == True)  # noqa: E712
+                .order_by(cast(func.substr(SummaryView.name, 6), Integer))
+            )
+            summaries = (await session.execute(q)).all()
+    with open(csv_path, "w") as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=';')
+        csv_writer.writerow(EXPORT_HEADERS)
+        for summary in summaries:
+            csv_writer.writerow(summary)
 
 
+    
 
 
 def add_args(parser: ArgumentParser):
