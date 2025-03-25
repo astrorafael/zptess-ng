@@ -247,7 +247,7 @@ class Exporter:
             for round_ in rounds:
                 csv_writer.writerow(round_)
 
-    async def export_samples(self, samples: Sequence[Tuple[Any]]) -> None:
+    def export_samples(self, samples: Sequence[Tuple[Any]]) -> None:
         csv_path = os.path.join(self.base_dir, f"samples_{self.filename_preffix}.csv")
         log.info("exporting %s", os.path.basename(csv_path))
         with open(csv_path, "w") as csv_file:
