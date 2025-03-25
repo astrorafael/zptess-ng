@@ -188,6 +188,70 @@ async def query_all_summaries() -> Sequence[SummaryView]:
             summaries = (await session.execute(q)).all()
     return summaries
 
+async def query_rounds(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[RoundView]:
+    async with AsyncSession() as session:
+        async with session.begin():
+            t0 = begin_tstamp
+            t1 = end_tstamp
+            q = (
+                select(
+                    RoundView.model,
+                    RoundView.name,
+                    RoundView.mac,
+                    RoundView.session,
+                    RoundView.role,
+                    RoundView.round,
+                    RoundView.freq,
+                    RoundView.stddev,
+                    RoundView.mag,
+                    RoundView.zero_point,
+                    RoundView.nsamples,
+                    RoundView.duration,
+                )
+                # complicated filter because stars3 always has upd_flag = False
+                .where(
+                    RoundView.session.between(t0, t1)
+                    & (
+                        (RoundView.upd_flag == True)  # noqa: E712
+                        | ((RoundView.upd_flag == False) & (RoundView.name == "stars3"))  # noqa: E712
+                    )
+                )  
+                .order_by(RoundView.session, RoundView.round)
+            )
+            rounds = (await session.execute(q)).all()
+    return rounds
+
+
+async def query_samples(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[SampleView]:
+    async with AsyncSession() as session:
+        async with session.begin():
+            t0 = begin_tstamp
+            t1 = end_tstamp
+            q = (
+                select(
+                    SampleView.model,
+                    SampleView.name,
+                    SampleView.mac,
+                    SampleView.session,
+                    SampleView.role,
+                    SampleView.round,
+                    SampleView.tstamp,
+                    SampleView.freq,
+                    SampleView.temp_box,
+                    SampleView.seq,
+                )
+                # complicated filter because stars3 always has upd_flag = False
+                .where(
+                    SampleView.session.between(t0, t1)
+                    & (
+                        (SampleView.upd_flag == True)  # noqa: E712
+                        | ((SampleView.upd_flag == False) & (SampleView.name == "stars3"))  # noqa: E712
+                    )
+                )  
+                .order_by(SampleView.session, SampleView.round, SampleView.tstamp)
+            )
+            rounds = (await session.execute(q)).all()
+    return rounds
 
 def filter_latest_summary(summaries: Sequence[SummaryView]) -> Sequence[SummaryView]:
     # group by photometer name
@@ -226,38 +290,6 @@ async def export_all_summaries(base_dir: str, filename_preffix: str) -> None:
             csv_writer.writerow(summary)
 
 
-async def query_rounds(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[RoundView]:
-    async with AsyncSession() as session:
-        async with session.begin():
-            t0 = begin_tstamp
-            t1 = end_tstamp
-            q = (
-                select(
-                    RoundView.model,
-                    RoundView.name,
-                    RoundView.mac,
-                    RoundView.session,
-                    RoundView.role,
-                    RoundView.round,
-                    RoundView.freq,
-                    RoundView.stddev,
-                    RoundView.mag,
-                    RoundView.zero_point,
-                    RoundView.nsamples,
-                    RoundView.duration,
-                )
-                # complicated filter because stars3 always has upd_flag = False
-                .where(
-                    RoundView.session.between(t0, t1)
-                    & (
-                        (RoundView.upd_flag == True)  # noqa: E712
-                        | ((RoundView.upd_flag == False) & (RoundView.name == "stars3"))  # noqa: E712
-                    )
-                )  
-                .order_by(RoundView.session, RoundView.round)
-            )
-            rounds = (await session.execute(q)).all()
-    return rounds
 
 
 async def export_rounds(base_dir: str, filename_preffix: str, batch: Batch) -> None:
@@ -271,37 +303,6 @@ async def export_rounds(base_dir: str, filename_preffix: str, batch: Batch) -> N
         for round_ in rounds:
             csv_writer.writerow(round_)
 
-
-async def query_samples(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[SampleView]:
-    async with AsyncSession() as session:
-        async with session.begin():
-            t0 = begin_tstamp
-            t1 = end_tstamp
-            q = (
-                select(
-                    SampleView.model,
-                    SampleView.name,
-                    SampleView.mac,
-                    SampleView.session,
-                    SampleView.role,
-                    SampleView.round,
-                    SampleView.tstamp,
-                    SampleView.freq,
-                    SampleView.temp_box,
-                    SampleView.seq,
-                )
-                # complicated filter because stars3 always has upd_flag = False
-                .where(
-                    SampleView.session.between(t0, t1)
-                    & (
-                        (SampleView.upd_flag == True)  # noqa: E712
-                        | ((SampleView.upd_flag == False) & (SampleView.name == "stars3"))  # noqa: E712
-                    )
-                )  
-                .order_by(SampleView.session, SampleView.round, SampleView.tstamp)
-            )
-            rounds = (await session.execute(q)).all()
-    return rounds
 
 
 async def export_samples(base_dir: str, filename_preffix: str, batch: Batch) -> None:
