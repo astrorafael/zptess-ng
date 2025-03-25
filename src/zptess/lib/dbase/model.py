@@ -397,6 +397,7 @@ samples_view = view(
         Photometer.mac.label("mac"),
         Photometer.model.label("model"),
         Summary.session.label("session"),
+        Summary.upd_flag.label("upd_flag"),
         Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
         Sample.role.label("role"),
         Sample.tstamp.label("tstamp"),

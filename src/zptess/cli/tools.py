@@ -35,7 +35,7 @@ from .util import parser as prs
 
 
 from ..lib.controller.batch import Controller
-from ..lib.dbase.model import Round, Sample, Batch, SummaryView, RoundView
+from ..lib.dbase.model import Batch, SummaryView, RoundView, SampleView
 from sqlalchemy import select, func, cast, Integer
 
 # ----------------
@@ -70,22 +70,31 @@ SUMMARY_EXPORT_HEADERS = (
 )
 
 ROUND_EXPORT_HEADERS = (
-    "model",
-    "name",
-    "mac",
-    "model",
-    "session",
-    "role,round",
-    "freq",
-    "stddev",
-    "central",
-    "mag",
-    "zp_fict",
-    "zero_point",
-    "nsamples",
-    "duration",
-    "begin_tstamp",
-    "end_tstamp",
+    "Model",
+    "Name",
+    "MAC",
+    "Session (UTC)",
+    "Role",
+    "Round",
+    "Freq (Hz)",
+    "\u03c3 (Hz)",
+    "Mag",
+    "ZP",
+    "# Samples",
+    "\u0394T (s.)",
+)
+
+SAMPLE_EXPORT_HEADERS = (
+    "Model",
+    "Name",
+    "MAC",
+    "Session (UTC)",
+    "Role",
+    "Round",
+    "Timestamp",
+    "Freq (Hz)",
+    "Box Temp (\u2103)",
+    "Sequence #",
 )
 
 # -----------------------
@@ -186,7 +195,7 @@ def filter_latest_summary(summaries: Sequence[SummaryView]) -> Sequence[SummaryV
     result = list()
     for name, group in grouped:
         group = tuple(group)
-        result.append(group[-1]) # Since they are sorted by ascending order, choose the last one
+        result.append(group[-1])  # Since they are sorted by ascending order, choose the last one
         if len(group) > 1:
             log.warn("%s has %d summaries, choosing the most recent session", name, len(group))
     return result
@@ -227,23 +236,25 @@ async def query_rounds(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence
                     RoundView.model,
                     RoundView.name,
                     RoundView.mac,
-                    RoundView.model,
                     RoundView.session,
                     RoundView.role,
                     RoundView.round,
                     RoundView.freq,
                     RoundView.stddev,
-                    RoundView.central,
                     RoundView.mag,
-                    RoundView.zp_fict,
                     RoundView.zero_point,
                     RoundView.nsamples,
                     RoundView.duration,
-                    RoundView.begin_tstamp,
-                    RoundView.end_tstamp,
                 )
-                .where(RoundView.session.between(t0, t1), RoundView.upd_flag == True)  # noqa: E712
-                .order_by(cast(func.substr(RoundView.name, 6), Integer))
+                # complicated filter because stars3 always has upd_flag = False
+                .where(
+                    RoundView.session.between(t0, t1)
+                    & (
+                        (RoundView.upd_flag == True)  # noqa: E712
+                        | ((RoundView.upd_flag == False) & (RoundView.name == "stars3"))  # noqa: E712
+                    )
+                )  
+                .order_by(RoundView.session, RoundView.round)
             )
             rounds = (await session.execute(q)).all()
     return rounds
@@ -259,6 +270,50 @@ async def export_rounds(base_dir: str, filename_preffix: str, batch: Batch) -> N
         csv_writer.writerow(ROUND_EXPORT_HEADERS)
         for round_ in rounds:
             csv_writer.writerow(round_)
+
+
+async def query_samples(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence[SampleView]:
+    async with AsyncSession() as session:
+        async with session.begin():
+            t0 = begin_tstamp
+            t1 = end_tstamp
+            q = (
+                select(
+                    SampleView.model,
+                    SampleView.name,
+                    SampleView.mac,
+                    SampleView.session,
+                    SampleView.role,
+                    SampleView.round,
+                    SampleView.tstamp,
+                    SampleView.freq,
+                    SampleView.temp_box,
+                    SampleView.seq,
+                )
+                # complicated filter because stars3 always has upd_flag = False
+                .where(
+                    SampleView.session.between(t0, t1)
+                    & (
+                        (SampleView.upd_flag == True)  # noqa: E712
+                        | ((SampleView.upd_flag == False) & (SampleView.name == "stars3"))  # noqa: E712
+                    )
+                )  
+                .order_by(SampleView.session, SampleView.round, SampleView.tstamp)
+            )
+            rounds = (await session.execute(q)).all()
+    return rounds
+
+
+async def export_samples(base_dir: str, filename_preffix: str, batch: Batch) -> None:
+    log.info("Fetching samples for batch %s", batch)
+    samples = await query_samples(batch.begin_tstamp, batch.end_tstamp)
+    csv_path = os.path.join(base_dir, f"samples_{filename_preffix}.csv")
+    log.info("exporting %s", os.path.basename(csv_path))
+    with open(csv_path, "w") as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=";")
+        csv_writer.writerow(SAMPLE_EXPORT_HEADERS)
+        for sample in samples:
+            csv_writer.writerow(sample)
 
 
 # -----------------
@@ -326,6 +381,7 @@ async def cli_batch_export(args: Namespace) -> None:
             os.makedirs(export_dir, exist_ok=True)
             await export_summaries(export_dir, filename_preffix, batch)
             await export_rounds(export_dir, filename_preffix, batch)
+            await export_samples(export_dir, filename_preffix, batch)
         else:
             log.info("No batch is available")
 
