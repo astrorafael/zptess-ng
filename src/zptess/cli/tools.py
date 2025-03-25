@@ -11,6 +11,8 @@
 import os
 import csv
 import logging
+import itertools
+
 from argparse import Namespace, ArgumentParser
 from datetime import datetime
 from typing import Sequence
@@ -136,15 +138,76 @@ async def query_summaries(begin_tstamp: datetime, end_tstamp: datetime) -> Seque
                     SummaryView.comment,
                 )
                 .where(SummaryView.session.between(t0, t1), SummaryView.upd_flag == True)  # noqa: E712
-                .order_by(cast(func.substr(SummaryView.name, 6), Integer))
+                .order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
             )
             summaries = (await session.execute(q)).all()
     return summaries
 
 
+async def query_all_summaries() -> Sequence[SummaryView]:
+    async with AsyncSession() as session:
+        async with session.begin():
+            q = (
+                select(
+                    SummaryView.model,
+                    SummaryView.name,
+                    SummaryView.mac,
+                    SummaryView.firmware,
+                    SummaryView.sensor,
+                    SummaryView.session,
+                    SummaryView.calibration,
+                    SummaryView.calversion,
+                    SummaryView.ref_mag,
+                    SummaryView.ref_freq,
+                    SummaryView.test_freq,
+                    SummaryView.test_mag,
+                    SummaryView.mag_diff,
+                    SummaryView.raw_zero_point,
+                    SummaryView.zp_offset,
+                    SummaryView.zero_point,
+                    SummaryView.prev_zp,
+                    SummaryView.filter,
+                    SummaryView.plug,
+                    SummaryView.box,
+                    SummaryView.collector,
+                    SummaryView.author,
+                    SummaryView.comment,
+                )
+                .where(SummaryView.name.like("stars%"), SummaryView.upd_flag == True)  # noqa: E712
+                .order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
+            )
+            summaries = (await session.execute(q)).all()
+    return summaries
+
+
+def filter_latest_summary(summaries: Sequence[SummaryView]) -> Sequence[SummaryView]:
+    # group by photometer name
+    grouped = itertools.groupby(summaries, key=lambda summary: summary[1])
+    result = list()
+    for name, group in grouped:
+        group = tuple(group)
+        result.append(group[-1]) # Since they are sorted by ascending order, choose the last one
+        if len(group) > 1:
+            log.warn("%s has %d summaries, choosing the most recent session", name, len(group))
+    return result
+
+
 async def export_summaries(base_dir: str, filename_preffix: str, batch: Batch) -> None:
     log.info("Fetching summaries for batch %s", batch)
     summaries = await query_summaries(batch.begin_tstamp, batch.end_tstamp)
+    csv_path = os.path.join(base_dir, f"summary_{filename_preffix}.csv")
+    log.info("exporting %s", os.path.basename(csv_path))
+    with open(csv_path, "w") as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=";")
+        csv_writer.writerow(SUMMARY_EXPORT_HEADERS)
+        for summary in summaries:
+            csv_writer.writerow(summary)
+
+
+async def export_all_summaries(base_dir: str, filename_preffix: str) -> None:
+    log.info("Fetching ALL summaries")
+    summaries = await query_all_summaries()
+    summaries = filter_latest_summary(summaries)
     csv_path = os.path.join(base_dir, f"summary_{filename_preffix}.csv")
     log.info("exporting %s", os.path.basename(csv_path))
     with open(csv_path, "w") as csv_file:
@@ -186,7 +249,7 @@ async def query_rounds(begin_tstamp: datetime, end_tstamp: datetime) -> Sequence
     return rounds
 
 
-async def export_rounds(base_dir: str, filename_preffix: str,  batch: Batch) -> None:
+async def export_rounds(base_dir: str, filename_preffix: str, batch: Batch) -> None:
     log.info("Fetching rounds for batch %s", batch)
     rounds = await query_rounds(batch.begin_tstamp, batch.end_tstamp)
     csv_path = os.path.join(base_dir, f"rounds_{filename_preffix}.csv")
@@ -243,24 +306,28 @@ async def cli_batch_view(args: Namespace) -> None:
 
 
 async def cli_batch_export(args: Namespace) -> None:
-    batch_ctrl = Controller()
-    if args.begin_date:
-        batch = await batch_ctrl.by_date(args.begin_date)
-    elif args.latest:
-        batch = await batch_ctrl.latest()
+    if args.all:
+        export_dir = args.base_dir
+        log.info("exporting to directory %s", export_dir)
+        await export_all_summaries(export_dir, "all")
     else:
-        raise NotImplementedError("Not yet available, please, be patient ...")
-    if batch is None:
-        log.info("No batch is available")
-        return
-    t0 = batch.begin_tstamp.strftime("%Y%m%d")
-    t1 = batch.end_tstamp.strftime("%Y%m%d")
-    filename_preffix = f"from_{t0}_to_{t1}"
-    export_dir = os.path.join(args.base_dir, filename_preffix)
-    log.info("exporting to directory %s", export_dir)
-    os.makedirs(export_dir, exist_ok=True)
-    await export_summaries(export_dir, filename_preffix, batch)
-    await export_rounds(export_dir, filename_preffix, batch)
+        batch_ctrl = Controller()
+        batch = (
+            await batch_ctrl.by_date(args.begin_date)
+            if args.begin_date
+            else await batch_ctrl.latest()
+        )
+        if batch is not None:
+            t0 = batch.begin_tstamp.strftime("%Y%m%d")
+            t1 = batch.end_tstamp.strftime("%Y%m%d")
+            filename_preffix = f"from_{t0}_to_{t1}"
+            export_dir = os.path.join(args.base_dir, filename_preffix)
+            log.info("exporting to directory %s", export_dir)
+            os.makedirs(export_dir, exist_ok=True)
+            await export_summaries(export_dir, filename_preffix, batch)
+            await export_rounds(export_dir, filename_preffix, batch)
+        else:
+            log.info("No batch is available")
 
 
 def add_args(parser: ArgumentParser):
