@@ -387,6 +387,31 @@ rounds_view = view(
 )
 
 
+# Another view for exporting data
+samples_view = view(
+    name="samples_v",
+    metadata=Model.metadata,
+    selectable=select(
+        Sample.id.label("id"),
+        Photometer.name.label("name"),
+        Photometer.mac.label("mac"),
+        Photometer.model.label("model"),
+        Summary.session.label("session"),
+        Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
+        Sample.role.label("role"),
+        Sample.tstamp.label("tstamp"),
+        func.round(Sample.freq, 3).label("freq"),
+        Sample.temp_box.label("temp_box"),
+        Sample.seq.label("seq"),
+    )
+    .select_from(SamplesRounds)
+    .join(Sample,  SamplesRounds.c.sample_id == Sample.id)
+    .join(Round,  SamplesRounds.c.round_id == Round.id)
+    .join(Summary, Sample.summ_id == Summary.id)
+    .join(Photometer, Photometer.id == Summary.phot_id)
+)
+
+
 class SummaryView(Model):
     __table__ = summary_view
 
@@ -398,3 +423,9 @@ class RoundView(Model):
 
     def __repr__(self) -> str:
         return f"RoundsView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, freq={self.freq!r}, method={self.central!r})"
+
+class SampleView(Model):
+    __table__ = samples_view
+
+    def __repr__(self) -> str:
+        return f"SampleView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, freq={self.freq!r}, sequence={self.sequence!r})"
