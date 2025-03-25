@@ -63,7 +63,7 @@ lica-rel version:
     set -exuo pipefail
     echo "Removing previous LICA dependency"
     uv remove lica
-    echo "Adding release version of LICA library {{ version }}";
+    echo "Adding release version of LICA library";
     uv add --refresh-package lica lica[photometer,tabular];
     uv remove aiohttp aioserial pyserial-asyncio tabulate
 
