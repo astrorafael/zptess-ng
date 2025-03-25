@@ -96,9 +96,15 @@ log = logging.getLogger(__name__.split(".")[-1])
 # Auxiliary classes
 # -----------------
 
-class Exporter:
 
-    def __init__(self, base_dir: str, filename_prefix: str, begin_tstamp: datetime = None, end_tstamp: datetime = None):
+class Exporter:
+    def __init__(
+        self,
+        base_dir: str,
+        filename_prefix: str,
+        begin_tstamp: datetime = None,
+        end_tstamp: datetime = None,
+    ):
         self.begin_tstamp = begin_tstamp
         self.end_tstamp = end_tstamp
         self.base_dir = base_dir
@@ -109,72 +115,42 @@ class Exporter:
             async with session.begin():
                 t0 = self.begin_tstamp
                 t1 = self.end_tstamp
+                q = select(
+                    SummaryView.model,
+                    SummaryView.name,
+                    SummaryView.mac,
+                    SummaryView.firmware,
+                    SummaryView.sensor,
+                    SummaryView.session,
+                    SummaryView.calibration,
+                    SummaryView.calversion,
+                    SummaryView.ref_mag,
+                    SummaryView.ref_freq,
+                    SummaryView.test_freq,
+                    SummaryView.test_mag,
+                    SummaryView.mag_diff,
+                    SummaryView.raw_zero_point,
+                    SummaryView.zp_offset,
+                    SummaryView.zero_point,
+                    SummaryView.prev_zp,
+                    SummaryView.filter,
+                    SummaryView.plug,
+                    SummaryView.box,
+                    SummaryView.collector,
+                    SummaryView.author,
+                    SummaryView.comment,
+                )
                 if t0 is not None:
-                    q = (
-                        select(
-                            SummaryView.model,
-                            SummaryView.name,
-                            SummaryView.mac,
-                            SummaryView.firmware,
-                            SummaryView.sensor,
-                            SummaryView.session,
-                            SummaryView.calibration,
-                            SummaryView.calversion,
-                            SummaryView.ref_mag,
-                            SummaryView.ref_freq,
-                            SummaryView.test_freq,
-                            SummaryView.test_mag,
-                            SummaryView.mag_diff,
-                            SummaryView.raw_zero_point,
-                            SummaryView.zp_offset,
-                            SummaryView.zero_point,
-                            SummaryView.prev_zp,
-                            SummaryView.filter,
-                            SummaryView.plug,
-                            SummaryView.box,
-                            SummaryView.collector,
-                            SummaryView.author,
-                            SummaryView.comment,
-                        )
-                        .where(SummaryView.session.between(t0, t1), SummaryView.upd_flag == True)  # noqa: E712
-                        .order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
-                    )
+                    q = q.where(
+                        SummaryView.session.between(t0, t1), SummaryView.upd_flag == True  # noqa: E712
+                    ).order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
                 else:
-                    q = (
-                        select(
-                            SummaryView.model,
-                            SummaryView.name,
-                            SummaryView.mac,
-                            SummaryView.firmware,
-                            SummaryView.sensor,
-                            SummaryView.session,
-                            SummaryView.calibration,
-                            SummaryView.calversion,
-                            SummaryView.ref_mag,
-                            SummaryView.ref_freq,
-                            SummaryView.test_freq,
-                            SummaryView.test_mag,
-                            SummaryView.mag_diff,
-                            SummaryView.raw_zero_point,
-                            SummaryView.zp_offset,
-                            SummaryView.zero_point,
-                            SummaryView.prev_zp,
-                            SummaryView.filter,
-                            SummaryView.plug,
-                            SummaryView.box,
-                            SummaryView.collector,
-                            SummaryView.author,
-                            SummaryView.comment,
-                        )
-                        .where(SummaryView.name.like("stars%"), SummaryView.upd_flag == True)  # noqa: E712
-                        .order_by(
-                            cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session
-                        )
-                    )
+                    q = q.where(
+                        SummaryView.name.like("stars%"), SummaryView.upd_flag == True  # noqa: E712
+                    ).order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
                 summaries = (await session.execute(q)).all()
                 summaries = self._filter_latest_summary(summaries)
         return summaries
-
 
     async def query_rounds(self) -> Sequence[Tuple[Any]]:
         async with AsyncSession() as session:
@@ -203,12 +179,11 @@ class Exporter:
                             (RoundView.upd_flag == True)  # noqa: E712
                             | ((RoundView.upd_flag == False) & (RoundView.name == "stars3"))  # noqa: E712
                         )
-                    )  
+                    )
                     .order_by(RoundView.session, RoundView.round)
                 )
                 rounds = (await session.execute(q)).all()
         return rounds
-
 
     async def query_samples(self) -> Sequence[Tuple[Any]]:
         async with AsyncSession() as session:
@@ -235,7 +210,7 @@ class Exporter:
                             (SampleView.upd_flag == True)  # noqa: E712
                             | ((SampleView.upd_flag == False) & (SampleView.name == "stars3"))  # noqa: E712
                         )
-                    )  
+                    )
                     .order_by(SampleView.session, SampleView.round, SampleView.tstamp)
                 )
                 rounds = (await session.execute(q)).all()
@@ -247,7 +222,9 @@ class Exporter:
         result = list()
         for name, group in grouped:
             group = tuple(group)
-            result.append(group[-1])  # Since they are sorted by ascending order, choose the last one
+            result.append(
+                group[-1]
+            )  # Since they are sorted by ascending order, choose the last one
             if len(group) > 1:
                 log.warn("%s has %d summaries, choosing the most recent session", name, len(group))
         return result
@@ -268,7 +245,7 @@ class Exporter:
             csv_writer = csv.writer(csv_file, delimiter=";")
             csv_writer.writerow(ROUND_EXPORT_HEADERS)
             for round_ in rounds:
-                csv_writer.writerow(round_)   
+                csv_writer.writerow(round_)
 
     async def export_samples(self, samples: Sequence[Tuple[Any]]) -> None:
         csv_path = os.path.join(self.base_dir, f"samples_{self.filename_preffix}.csv")
@@ -277,4 +254,4 @@ class Exporter:
             csv_writer = csv.writer(csv_file, delimiter=";")
             csv_writer.writerow(SAMPLE_EXPORT_HEADERS)
             for sample in samples:
-                csv_writer.writerow(sample) 
+                csv_writer.writerow(sample)
