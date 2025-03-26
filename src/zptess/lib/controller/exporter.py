@@ -26,34 +26,34 @@ from lica.sqlalchemy.asyncio.dbase import AsyncSession
 # local imports
 # -------------
 
-from ..lib.dbase.model import SummaryView, RoundView, SampleView
+from ..dbase.model import SummaryView, RoundView, SampleView
 from sqlalchemy import select, func, cast, Integer
 
 
 SUMMARY_EXPORT_HEADERS = (
-    "model",
-    "name",
-    "mac",
-    "firmware",
-    "sensor",
-    "session",
-    "calibration",
-    "calversion",
-    "ref_mag",
-    "ref_freq",
-    "test_mag",
-    "test_freq",
-    "mag_diff",
-    "raw_zero_point",
-    "offset",
-    "zero_point",
-    "prev_zp",
-    "filter",
-    "plug",
-    "box",
-    "collector",
-    "author",
-    "comment",
+    "Model",
+    "Name",
+    "MAC",
+    "Firmware",
+    "Sensor",
+    "Calibration Date (UTC)",
+    "Calibration",
+    "Cal. SW. Version",
+    "Ref. Mag.",
+    "Ref. Freq.",
+    "Test Mag.",
+    "test freq.",
+    "Ref-Test Mag. Diff.",
+    "Raw ZP",
+    "ZP Offset",
+    "Final ZP",
+    "Prev. ZP",
+    "Filter",
+    "Plug",
+    "Box",
+    "Collector",
+    "Author",
+    "Comment",
 )
 
 ROUND_EXPORT_HEADERS = (
@@ -110,6 +110,10 @@ class Exporter:
         self.base_dir = base_dir
         self.filename_prefix = filename_prefix
 
+    # ----------
+    # Public API
+    # ----------
+
     async def query_summaries(self) -> Sequence[Tuple[Any]]:
         async with AsyncSession() as session:
             async with session.begin():
@@ -142,11 +146,13 @@ class Exporter:
                 )
                 if t0 is not None:
                     q = q.where(
-                        SummaryView.session.between(t0, t1), SummaryView.upd_flag == True  # noqa: E712
+                        SummaryView.session.between(t0, t1),
+                        SummaryView.upd_flag == True,  # noqa: E712
                     ).order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
                 else:
                     q = q.where(
-                        SummaryView.name.like("stars%"), SummaryView.upd_flag == True  # noqa: E712
+                        SummaryView.name.like("stars%"),
+                        SummaryView.upd_flag == True,  # noqa: E712
                     ).order_by(cast(func.substr(SummaryView.name, 6), Integer), SummaryView.session)
                 summaries = (await session.execute(q)).all()
                 summaries = self._filter_latest_summary(summaries)
@@ -216,6 +222,37 @@ class Exporter:
                 rounds = (await session.execute(q)).all()
         return rounds
 
+    def export_summaries(self, summaries: Sequence[Tuple[Any]]) -> None:
+        csv_path = os.path.join(self.base_dir, f"summary_{self.filename_prefix}.csv")
+        log.info("exporting %s", os.path.basename(csv_path))
+        with open(csv_path, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=";")
+            csv_writer.writerow(SUMMARY_EXPORT_HEADERS)
+            for summary in summaries:
+                csv_writer.writerow(summary)
+
+    def export_rounds(self, rounds: Sequence[Tuple[Any]]) -> None:
+        csv_path = os.path.join(self.base_dir, f"rounds_{self.filename_prefix}.csv")
+        log.info("exporting %s", os.path.basename(csv_path))
+        with open(csv_path, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=";")
+            csv_writer.writerow(ROUND_EXPORT_HEADERS)
+            for round_ in rounds:
+                csv_writer.writerow(round_)
+
+    def export_samples(self, samples: Sequence[Tuple[Any]]) -> None:
+        csv_path = os.path.join(self.base_dir, f"samples_{self.filename_prefix}.csv")
+        log.info("exporting %s", os.path.basename(csv_path))
+        with open(csv_path, "w") as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=";")
+            csv_writer.writerow(SAMPLE_EXPORT_HEADERS)
+            for sample in samples:
+                csv_writer.writerow(sample)
+
+    # ---------------
+    # Private methods
+    # ---------------
+
     def _filter_latest_summary(self, summaries: Sequence[Tuple[Any]]) -> Sequence[Tuple[Any]]:
         # group by photometer name
         grouped = itertools.groupby(summaries, key=lambda summary: summary[1])
@@ -228,30 +265,3 @@ class Exporter:
             if len(group) > 1:
                 log.warn("%s has %d summaries, choosing the most recent session", name, len(group))
         return result
-
-    def export_summaries(self, summaries: Sequence[Tuple[Any]]) -> None:
-        csv_path = os.path.join(self.base_dir, f"summary_{self.filename_preffix}.csv")
-        log.info("exporting %s", os.path.basename(csv_path))
-        with open(csv_path, "w") as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=";")
-            csv_writer.writerow(SUMMARY_EXPORT_HEADERS)
-            for summary in summaries:
-                csv_writer.writerow(summary)
-
-    def export_rounds(self, rounds: Sequence[Tuple[Any]]) -> None:
-        csv_path = os.path.join(self.base_dir, f"rounds_{self.filename_preffix}.csv")
-        log.info("exporting %s", os.path.basename(csv_path))
-        with open(csv_path, "w") as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=";")
-            csv_writer.writerow(ROUND_EXPORT_HEADERS)
-            for round_ in rounds:
-                csv_writer.writerow(round_)
-
-    def export_samples(self, samples: Sequence[Tuple[Any]]) -> None:
-        csv_path = os.path.join(self.base_dir, f"samples_{self.filename_preffix}.csv")
-        log.info("exporting %s", os.path.basename(csv_path))
-        with open(csv_path, "w") as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=";")
-            csv_writer.writerow(SAMPLE_EXPORT_HEADERS)
-            for sample in samples:
-                csv_writer.writerow(sample)
