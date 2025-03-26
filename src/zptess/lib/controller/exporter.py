@@ -10,6 +10,7 @@
 
 import os
 import csv
+import glob
 import zipfile
 import logging
 import itertools
@@ -169,7 +170,7 @@ def email_send(
 # -----------------
 
 
-class Exporter:
+class Controller:
     def __init__(
         self,
         base_dir: str,
@@ -179,7 +180,7 @@ class Exporter:
     ):
         self.begin_tstamp = begin_tstamp
         self.end_tstamp = end_tstamp
-        self.base_dir = base_dir
+        self.base_dir = base_dir if os.path.isabs(base_dir) else os.path.abspath(base_dir)
         self.filename_prefix = filename_prefix
 
     # ----------
@@ -323,11 +324,16 @@ class Exporter:
 
     def pack(self) -> str:
         """Pack all files in the ZIP file given by options"""
-        # prev_workdir = os.getcwd()
-        zip_file = os.path.join(self.base_dir, self.filename_prefix + ".zip")
-        # os.chdir(self.base_dir)
-        self._pack(zip_file)
-        # os.chdir(prev_workdir)
+        parent_dir = os.path.dirname(self.base_dir)
+        zip_file = os.path.join(parent_dir, self.filename_prefix + ".zip")
+        log.info("Creating ZIP File: '%s'", zip_file)
+        file_paths = [
+            os.path.join(os.path.basename(self.base_dir), fname)
+            for fname in glob.glob("*.csv", root_dir=self.base_dir)
+        ]
+        with zipfile.ZipFile(zip_file, "w") as myzip:
+            for myfile in file_paths:
+                myzip.write(myfile)
         return zip_file
 
     async def check_internet(self) -> bool:
@@ -384,26 +390,6 @@ class Exporter:
     # ---------------
     # Private methods
     # ---------------
-
-    def _pack(self, zip_file: str):
-        """Pack all files in the ZIP file given by options"""
-        paths = self._get_paths(self.base_dir)
-        log.info("Creating ZIP File: '%s'", zip_file)
-        with zipfile.ZipFile(zip_file, "w") as myzip:
-            for myfile in paths:
-                myzip.write(myfile)
-
-    def _get_paths(self, dir_path: str):
-        """Get all file paths in a list"""
-        file_paths = []
-        # crawling through directory and subdirectories
-        for root, directories, files in os.walk(dir_path):
-            root = os.path.basename(root)  # Needs a change of cwd later on if we do this
-            log.debug("Exploring directory %s", root)
-            for filename in files:
-                filepath = os.path.join(root, filename)
-                file_paths.append(filepath)
-        return file_paths
 
     def _filter_latest_summary(self, summaries: Sequence[Tuple[Any]]) -> Sequence[Tuple[Any]]:
         # group by photometer name

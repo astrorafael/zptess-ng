@@ -29,8 +29,8 @@ from lica.tabulate import paging
 from .. import __version__
 from .util import parser as prs
 
-from ..lib.controller.batch import Controller
-from ..lib.controller.exporter import Exporter
+from ..lib.controller.batch import Controller as BatchController
+from ..lib.controller.exporter import Controller as Exporter
 
 
 # ----------------
@@ -57,13 +57,13 @@ log = logging.getLogger(__name__.split(".")[-1])
 
 
 async def cli_batch_begin(args: Namespace) -> None:
-    batch = Controller()
+    batch = BatchController()
     tstamp = await batch.open(comment="pepe")
     log.info("Opening batch %s", tstamp.strftime(TSTAMP_FMT))
 
 
 async def cli_batch_end(args: Namespace) -> None:
-    batch = Controller()
+    batch = BatchController()
     t0, t1, N = await batch.close()
     log.info(
         "Closing batch [%s - %s] with %d calibrations",
@@ -74,13 +74,13 @@ async def cli_batch_end(args: Namespace) -> None:
 
 
 async def cli_batch_purge(args: Namespace) -> None:
-    batch = Controller()
+    batch = BatchController()
     N = await batch.purge()
     log.info("Purged %d batches with no summary calibration entries", N)
 
 
 async def cli_batch_orphan(args: Namespace) -> None:
-    batch = Controller()
+    batch = BatchController()
     orphans = await batch.orphan()
     log.info("%d orphan summaries not belonging to a batch", len(orphans))
     if args.list:
@@ -89,7 +89,7 @@ async def cli_batch_orphan(args: Namespace) -> None:
 
 
 async def cli_batch_view(args: Namespace) -> None:
-    batch = Controller()
+    batch = BatchController()
     HEADERS = ("Begin (UTC)", "End (UTC)", "# Sessions", "Emailed?", "Comment")
     iterable = await batch.view()
     paging(iterable, HEADERS, page_size=args.page_size, table_fmt=args.table_format)
@@ -103,7 +103,7 @@ async def cli_batch_export(args: Namespace) -> None:
         # This is not necessary in a CLI application, just to show how it should be done in a GUI
         await asyncio.to_thread(exporter.export_summaries, summaries)
     else:
-        batch_ctrl = Controller()
+        batch_ctrl = BatchController()
         batch = (
             await batch_ctrl.by_date(args.begin_date)
             if args.begin_date
