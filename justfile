@@ -164,11 +164,17 @@ view  verbose="" trace="":
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} view
 
-# Export latestbatch
+# Export latest batch
 export-latest  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} export --latest
+
+# Export latest batch and send email
+export-email  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} export --latest --email
 
 # Export all summaries
 export-all  verbose="" trace="":

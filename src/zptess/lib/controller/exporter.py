@@ -10,8 +10,18 @@
 
 import os
 import csv
+import zipfile
 import logging
 import itertools
+
+import ssl
+import smtplib
+
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 
 from datetime import datetime
 from typing import Sequence, Tuple, Any
@@ -20,13 +30,15 @@ from typing import Sequence, Tuple, Any
 # Third party imports
 # -------------------
 
+import aiohttp
+
 from lica.sqlalchemy.asyncio.dbase import AsyncSession
 
 # --------------
 # local imports
 # -------------
 
-from ..dbase.model import SummaryView, RoundView, SampleView
+from ..dbase.model import SummaryView, RoundView, SampleView, Config, Batch
 from sqlalchemy import select, func, cast, Integer
 
 
@@ -90,6 +102,66 @@ SAMPLE_EXPORT_HEADERS = (
 
 # get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
+
+
+# -------------------
+# Auxiliary functions
+# -------------------
+
+
+# Adapted From https://realpython.com/python-send-email/
+def email_send(
+    subject: str,
+    body: str,
+    sender: str,
+    receivers: str,
+    attachment: str,
+    host: str,
+    port: str,
+    password: str,
+    confidential: bool = False,
+):
+    msg_receivers = receivers
+    receivers = receivers.split(sep=",")
+    message = MIMEMultipart()
+    message["Subject"] = subject
+    # Create a multipart message and set headers
+    if confidential:
+        message["From"] = sender
+        message["To"] = sender
+        message["Bcc"] = msg_receivers
+    else:
+        message["From"] = sender
+        message["To"] = msg_receivers
+
+    # Add body to email
+    message.attach(MIMEText(body, "plain"))
+
+    # Open file in binary mode
+    with open(attachment, "rb") as fd:
+        # Add file as application/octet-stream
+        # Email client can usually download this automatically as attachment
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(fd.read())
+
+    # Encode file in ASCII characters to send by email
+    encoders.encode_base64(part)
+
+    # Add header as key/value pair to attachment part
+    part.add_header(
+        "Content-Disposition",
+        f"attachment; filename= {os.path.basename(attachment)}",
+    )
+    # Add attachment to message and convert message to string
+    message.attach(part)
+    # Log in to server using secure context and send email
+    context = ssl.create_default_context()
+    with smtplib.SMTP(host, port) as server:
+        server.ehlo()  # Can be omitted
+        server.starttls(context=context)
+        server.ehlo()  # Can be omitted
+        server.login(sender, password)
+        server.sendmail(sender, receivers, message.as_string())
 
 
 # -----------------
@@ -249,9 +321,89 @@ class Exporter:
             for sample in samples:
                 csv_writer.writerow(sample)
 
+    def pack(self) -> str:
+        """Pack all files in the ZIP file given by options"""
+        # prev_workdir = os.getcwd()
+        zip_file = os.path.join(self.base_dir, self.filename_prefix + ".zip")
+        # os.chdir(self.base_dir)
+        self._pack(zip_file)
+        # os.chdir(prev_workdir)
+        return zip_file
+
+    async def check_internet(self) -> bool:
+        result = True
+        timeout = aiohttp.ClientTimeout(total=5)  # 5 seconds timeout
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            try:
+                async with session.get("http://www.google.com") as response:
+                    status = response.status
+                    log.info("Connected to Internet. Status code: %s", status)
+            except Exception as e:
+                log.exception(e)
+                result = False
+        return result
+
+    async def load_email_config(self) -> None:
+        # Read email configuration
+        smtp_keys = set(("host", "port", "sender", "password", "receivers"))
+        async with AsyncSession() as session:
+            async with session.begin():
+                q = select(Config).where(Config.section == "smtp").order_by(Config.prop)
+                configs = (await session.scalars(q)).all()
+        properties = set(cfg.prop for cfg in configs)
+        if properties != smtp_keys:
+            missing = smtp_keys - properties
+            raise Exception("Missing properies in the database: %s", missing)
+        self.mail_cfg = dict(map(lambda cfg: (cfg.prop, cfg.value), configs))
+        self.mail_cfg["port"] = int(self.mail_cfg["port"])
+
+    def send_email(self, zip_file_path: str) -> bool:
+        try:
+            email_sent = True
+            email_send(
+                subject=f"[STARS4ALL] TESS calibration data from {self.begin_tstamp} to {self.end_tstamp}",
+                body="Find attached hereafter the summary, rounds and samples from this calibration batch",
+                sender=self.mail_cfg["sender"],
+                receivers=self.mail_cfg["receivers"],
+                attachment=zip_file_path,
+                host=self.mail_cfg["host"],
+                port=self.mail_cfg["port"],
+                password=self.mail_cfg["password"],
+            )
+        except Exception as e:
+            email_sent = False
+            log.exception(e)
+        return email_sent
+
+    async def update_batch(self, batch: Batch, email_sent: bool) -> None:
+        async with AsyncSession() as session:
+            async with session.begin():
+                batch.email_sent = email_sent
+                session.add(batch)
+
     # ---------------
     # Private methods
     # ---------------
+
+    def _pack(self, zip_file: str):
+        """Pack all files in the ZIP file given by options"""
+        paths = self._get_paths(self.base_dir)
+        log.info("Creating ZIP File: '%s'", zip_file)
+        with zipfile.ZipFile(zip_file, "w") as myzip:
+            for myfile in paths:
+                myzip.write(myfile)
+
+    def _get_paths(self, dir_path: str):
+        """Get all file paths in a list"""
+        file_paths = []
+        # crawling through directory and subdirectories
+        for root, directories, files in os.walk(dir_path):
+            root = os.path.basename(root)  # Needs a change of cwd later on if we do this
+            log.debug("Exploring directory %s", root)
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                file_paths.append(filepath)
+        return file_paths
 
     def _filter_latest_summary(self, summaries: Sequence[Tuple[Any]]) -> Sequence[Tuple[Any]]:
         # group by photometer name

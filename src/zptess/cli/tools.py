@@ -46,6 +46,11 @@ TSTAMP_FMT = "%Y-%m-%dT%H:%M:%S"
 # get the module logger
 log = logging.getLogger(__name__.split(".")[-1])
 
+
+# -----------------
+# Auxiliar function
+# -----------------
+
 # -----------------
 # CLI API functions
 # -----------------
@@ -123,6 +128,24 @@ async def cli_batch_export(args: Namespace) -> None:
             await asyncio.to_thread(exporter.export_rounds, rounds)
             samples = await exporter.query_rounds()
             await asyncio.to_thread(exporter.export_samples, samples)
+            zip_file_path = await asyncio.to_thread(exporter.pack)
+            if not args.email:
+                log.info("Not sending email for this batch")
+                return
+            if batch.email_sent is None:
+                log.info("Never tried to send an email for this batch")
+            elif batch.email_sent == 0:
+                log.info("Tried to previously send email for this batch, but failed")
+            else:
+                log.info("Already sent an email for this batch")
+                return
+            await exporter.load_email_config()
+            internet = await exporter.check_internet()
+            if not internet:
+                log.error("No connection to Internet. Stopping here")
+                return
+            email_sent = await asyncio.to_thread(exporter.send_email, zip_file_path)
+            await exporter.update_batch(batch, email_sent)
         else:
             log.info("No batch is available")
 
