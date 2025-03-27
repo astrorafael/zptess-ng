@@ -74,17 +74,17 @@ env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, "env", projec
 env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", project))
 
 # Restore a fresh, unmigrated ZPTESS database
-db-anew drive=def_drive: (check_mnt drive) (db-restore)
+db-anew date drive=def_drive: (check_mnt drive) (db-restore date)
 
 # Starts a new database export migration cycle   
-anew folder="migra" verbose="": db-anew
+anew date="20250121" folder="migra" verbose="": (db-anew date)
     #!/usr/bin/env bash
     set -exuo pipefail
     uv sync --reinstall
     uv run zp-db-fix-src
     test -d {{ folder }} || mkdir {{ folder }}
-    uv run zp-db-schema --console {{ verbose }}
-    uv run zp-db-extract --console {{ verbose }} all --output-dir {{ folder }}
+    uv run zp-db-schema --console --log-file zptool.log {{ verbose }}
+    uv run zp-db-extract --console --log-file zptool.log {{ verbose }} all --output-dir {{ folder }}
 
 # Starts a new database import migration cycle   
 aload stage="summary" folder="migra":
@@ -261,6 +261,38 @@ purge:
     set -euxo pipefail
     uv run zp-batch --console --log-file zptool.log --trace purge
 
+# Database migration. Execute onle once !
+migrate date="20250121" stage="samples" folder="migra" drive=def_drive: (check_mnt drive)
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    cp {{ def_drive }}/zptess/zptess-{{date}}.db zptess.prod.db
+    uv run zp-db-fix-src
+    test -d {{ folder }} || mkdir {{ folder }}
+    # Create the database and export data from the old database
+    uv run zp-db-schema --console --log-file zpdbase.log
+    uv run zp-db-extract --console --log-file zpdbase.log all --output-dir {{ folder }}
+    # load data into new database
+    uv run zp-db-loader --console --log-file zpdbase.log config --input-dir {{folder}}
+    uv run zp-db-loader --console --log-file zpdbase.log batch --input-dir {{folder}}
+    if [ "{{stage}}" == "photometer" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+    elif [ "{{stage}}" == "summary" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+    elif [ "{{stage}}" == "rounds" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log rounds --input-dir {{folder}}
+    elif [ "{{stage}}" == "samples" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log rounds --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log samples --input-dir {{folder}}
+    else
+        echo "Unknown stage"
+        exit 1
+    fi
+
 # Backup zptess database and log file
 backup drive=def_drive: (check_mnt drive)
     #!/usr/bin/env bash
@@ -271,6 +303,7 @@ backup drive=def_drive: (check_mnt drive)
     cp zptess.db ${bak_dir}
     cp zptess.log ${bak_dir}
     cp zptool.log ${bak_dir}
+    cp zpdbase.log ${bak_dir}
     cp justfile ${bak_dir}
 
 # Restore zptess database and log file
@@ -279,17 +312,18 @@ restore drive=def_drive: (check_mnt drive)
     set -exuo pipefail
     bak_dir={{ join(drive, "zptess") }}
     cp .env ${bak_dir}/.env .
-    cp  ${bak_dir}/zptess.db .
+    cp ${bak_dir}/zptess.db .
     cp ${bak_dir}/zptool.log  .
+    cp ${bak_dir}/zpdbase.log  .
     cp ${bak_dir}/justfile .
 
 # =======================================================================
 
 [private]
-db-restore:
+db-restore date:
     #!/usr/bin/env bash
     set -exuo pipefail
-    cp {{ def_drive }}/zptess/zptess-20250121.db zptess.prod.db
+    cp {{ def_drive }}/zptess/zptess-{{date}}.db zptess.prod.db
     
 
 [private]
