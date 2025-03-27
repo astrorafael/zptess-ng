@@ -79,7 +79,10 @@ async def cli_update_zp(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
-        "test", parents=[prs.dry(), prs.wrzp(), prs.test()], help="Read test photometer"
+        "test", parents=[prs.wrzp(), prs.test()], help="Read test photometer"
+    )
+    p.add_argument(
+        "-d", "--dry-run", action="store_true", help="Do not update photometer"
     )
     p.set_defaults(func=cli_update_zp)
 
