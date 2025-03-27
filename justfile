@@ -117,71 +117,171 @@ aload stage="summary" folder="migra":
 # ========================= #
 
 # Writes new zero point to photometer
-write zp verbose="" trace="":
+test-write zp verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-write --console {{verbose}} {{trace}} test -z {{zp}}
 
 # Reads test/ref/both photometers
-read verbose="" trace="" which="test" N="10" :
+test-read verbose="" trace="" which="test" N="10" :
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-read --console {{verbose}} {{trace}} {{which}} -N {{N}}
 
 # Calibrate photometer
-calib verbose="" trace="" persist="":
+test-calib verbose="" trace="" persist="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-calib --console {{verbose}} {{trace}} test -b 9 -R 3 -P 5 {{persist}}
 
 # Open a new batch
-open  verbose="" trace="":
+test-open  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} begin
 
 # Close current open batch
-close  verbose="" trace="":
+test-close  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} end
 
 # Close current open batch
-purge  verbose="" trace="":
+test-purge  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} purge
 
-# Close current open batch
-orphan  verbose="" trace="":
+# See orphan calibrations not within a batch
+test-orphan  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} orphan
 
 # Close current open batch
-view  verbose="" trace="":
+test-view  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} view
 
 # Export latest batch
-export-latest  verbose="" trace="":
+test-export-latest  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} export --latest
 
 # Export latest batch and send email
-export-email  verbose="" trace="":
+test-export-email  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} export --latest --email
 
 # Export all summaries
-export-all  verbose="" trace="":
+test-export-all  verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
     uv run zp-batch --console {{verbose}} {{trace}} export --all
 
+# =======================================================================
+# DAY TO DAY CALIBRATION MANAGEMENT RECIPES
+#
+# Copy these recipes into a separate justfile and run all 
+# calibration-related task from there
+# ======================================================================= 
+
+# Open a new batch
+open:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace begin
+
+# Close current open batch
+close  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace end
+
+# Reads [test|ref|both] photometers N times
+read which="both" N="10" :
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-read --console --log-file zptess.log --trace {{which}} -N {{N}}
+
+# manually write a new zero point to a photometer
+write zp:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-write --console  --log-file zptess.log --trace  test -z {{zp}}
+
+# Cdisplay photometer info and quit
+info:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test --dry-run
+
+# Calibrate a new photometer, but don't write new ZP nor update database
+dry-run:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test
+
+# Calibrate a new photometer and stores results in database
+calib:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test --update --persist
+
+# Export all summaries
+summary:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace export --all
+
+# Export latest batch and send email
+export:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace export --latest --email
+
+# See orphan calibrations not within a batch
+orphan  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --trace orphan
+
+# Close current open batch
+view  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --trace view
+
+# Close current open batch
+purge:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace purge
+
+# Backup zptess database and log file
+backup drive=def_drive: (check_mnt drive)
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    bak_dir={{ join(drive, "zptess") }}
+    [ ! -d "${bak_dir}"  ] && mkdir -p ${bak_dir}
+    cp .env ${bak_dir}
+    cp zptess.db ${bak_dir}
+    cp zptess.log ${bak_dir}
+    cp zptool.log ${bak_dir}
+    cp justfile ${bak_dir}
+
+# Restore zptess database and log file
+restore drive=def_drive: (check_mnt drive)
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    bak_dir={{ join(drive, "zptess") }}
+    cp .env ${bak_dir}/.env .
+    cp  ${bak_dir}/zptess.db .
+    cp ${bak_dir}/zptool.log  .
+    cp ${bak_dir}/justfile .
 
 # =======================================================================
 
