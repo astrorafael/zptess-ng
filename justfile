@@ -208,16 +208,16 @@ read which="both" N="10" :
     uv run zp-read --console --log-file zptess.log --trace {{which}} -N {{N}}
 
 # manually write a new zero point to a photometer
-write zp:
+write zp dry_run="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-write --console  --log-file zptess.log --trace  test -z {{zp}}
+    uv run zp-write --console  --log-file zptess.log --trace  test -z {{zp}} {{dry_run}}
 
 # Cdisplay photometer info and quit
 info:
     #!/usr/bin/env bash
     set -euxo pipefail
-    uv run zp-calib --console --log-file zptess.log --trace test --dry-run
+    uv run zp-calib --console --log-file zptess.log --trace test --info
 
 # Calibrate a new photometer, but don't write new ZP nor update database
 dry-run:
