@@ -71,7 +71,7 @@ async def cli_read_ref(args: Namespace) -> None:
     )
     await controller.init()
     await log_phot_info(controller, Role.REF)
-    if args.dry_run:
+    if args.info:
         return
     await log_messages(controller, Role.REF, args.num_messages)
 
@@ -90,7 +90,7 @@ async def cli_read_test(args: Namespace) -> None:
     )
     await controller.init()
     await log_phot_info(controller, Role.TEST)
-    if args.dry_run:
+    if args.info:
         return
     await log_messages(controller, Role.TEST, args.num_messages)
 
@@ -120,7 +120,7 @@ async def cli_read_both(args: Namespace) -> None:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_phot_info(controller, Role.REF))
             tg.create_task(log_phot_info(controller, Role.TEST))
-        if args.dry_run:
+        if args.info:
             return
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_messages(controller, Role.REF, args.num_messages))
@@ -142,17 +142,17 @@ async def cli_read_both(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
-        "ref", parents=[prs.dry(), prs.nmsg(), prs.ref()], help="Read reference photometer"
+        "ref", parents=[prs.info(), prs.nmsg(), prs.ref()], help="Read reference photometer"
     )
     p.set_defaults(func=cli_read_ref)
     p = subparser.add_parser(
-        "test", parents=[prs.dry(), prs.nmsg(), prs.test()], help="Read test photometer"
+        "test", parents=[prs.info(), prs.nmsg(), prs.test()], help="Read test photometer"
     )
     p.set_defaults(func=cli_read_test)
     p = subparser.add_parser(
         "both",
         parents=[
-            prs.dry(),
+            prs.info(),
             prs.nmsg(),
             prs.ref(),
             prs.test(),

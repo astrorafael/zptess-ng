@@ -65,11 +65,10 @@ def buf() -> ArgumentParser:
     return parser
 
 
-def dry() -> ArgumentParser:
+def info() -> ArgumentParser:
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
-        "-d",
-        "--dry-run",
+        "--info",
         default=False,
         action="store_true",
         help="Query photometer info and exit (default %(default)s)",

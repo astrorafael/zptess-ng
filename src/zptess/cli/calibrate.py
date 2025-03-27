@@ -232,8 +232,8 @@ async def cli_calib_test(args: Namespace) -> None:
             else:
                 log.error(e)
         raise RuntimeError("Could't continue execution, check errors above")
-    if args.dry_run:
-        log.info("Dry run. Will stop here ...")
+    if args.info:
+        log.info("Only displaying info. Stopping here.")
         return
     final_zero_point = await controller.calibrate()
     if args.update:    
@@ -255,7 +255,7 @@ def add_args(parser: ArgumentParser):
     p = subparser.add_parser(
         "test",
         parents=[
-            prs.dry(),
+            prs.info(),
             prs.stats(),
             prs.upd(),
             prs.persist(),
