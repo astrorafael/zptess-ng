@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "TESS-W Calibration tool"
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
+license-files = ["LICENSE"]
 authors = [
     {name = "Rafael González", email = "rafael08@ucm.es"},
 ]
@@ -14,7 +14,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
@@ -50,7 +49,7 @@ zp-calib =  "zptess.cli.calibrate:main"
 zp-write =  "zptess.cli.writer:main"
 
 [build-system]
-requires = ["setuptools >= 45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools >= 78.1", "wheel", "setuptools_scm[toml]>=8.2"]
 build-backend = "setuptools.build_meta"
 
 # pyproject.toml
