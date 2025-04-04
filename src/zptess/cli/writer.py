@@ -15,6 +15,7 @@ from argparse import Namespace, ArgumentParser
 # Third party imports
 # -------------------
 
+from lica.sqlalchemy import sqa_logging
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
 
@@ -23,7 +24,7 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .. import __version__
-from ..lib.photometer import Writer
+from ..lib.controller.photometer import Writer
 from .util.misc import log_phot_info, update_zp
 from .util import parser as prs
 
@@ -64,15 +65,11 @@ async def cli_update_zp(args: Namespace) -> None:
     controller = Writer(
         test_params=test_params,
     )
-    try:
-        await controller.init()
-        await log_phot_info(controller, Role.TEST)
-        if args.dry_run:
-            return
-        await update_zp(controller, args.zero_point)
-    except Exception as e:
-        log.error(e)
-
+    await controller.init()
+    await log_phot_info(controller, Role.TEST)
+    if args.dry_run:
+        return
+    await update_zp(controller, args.zero_point)
 
 # -----------------
 # CLI API functions
@@ -82,17 +79,16 @@ async def cli_update_zp(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
-        "test", parents=[prs.dry(), prs.wrzp(), prs.test()], help="Read test photometer"
+        "test", parents=[prs.wrzp(), prs.test()], help="Read test photometer"
+    )
+    p.add_argument(
+        "-d", "--dry-run", action="store_true", help="Do not update photometer"
     )
     p.set_defaults(func=cli_update_zp)
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await args.func(args)
 
 

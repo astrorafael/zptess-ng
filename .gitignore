@@ -15,4 +15,5 @@ src/zptess/_version.py
 *.db
 *.csv
 *.bak
+*.log
 test*.py

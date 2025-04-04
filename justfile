@@ -45,10 +45,9 @@ test-publish pkg="zptess": build
 # Adds lica source library as dependency. 'version' may be a tag or branch
 lica-dev version="main":
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -exuo pipefail
     echo "Removing previous LICA dependency"
-    uv add aiohttp
-    uv add aioserial
+    uv add aiohttp pyserial-asyncio aioserial tabulate
     uv remove lica || echo "Ignoring non existing LICA library";
     if [[ "{{ version }}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
         echo "Adding LICA source library --tag {{ version }}"; 
@@ -59,16 +58,14 @@ lica-dev version="main":
     fi
 
 # Adds lica release library as dependency with a given version
-lica-rel version="":
+lica-rel version:
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -exuo pipefail
     echo "Removing previous LICA dependency"
-    uv remove lica || echo "Ignoring non existing LICA library";
-    echo "Adding LICA library {{ version }}";
-    uv add --refresh-package lica lica[photometer] {{ version }};
-    uv remove aiohttp
-    uv remove aioserial
-
+    uv remove lica
+    echo "Adding release version of LICA library";
+    uv add --refresh-package lica lica[photometer,tabular];
+    uv remove aiohttp aioserial pyserial-asyncio tabulate
 
 # Backup .env to storage unit
 env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, "env", project))
@@ -77,55 +74,256 @@ env-bak drive=def_drive: (check_mnt drive) (env-backup join(drive, "env", projec
 env-rst drive=def_drive: (check_mnt drive) (env-restore join(drive, "env", project))
 
 # Restore a fresh, unmigrated ZPTESS database
-db-anew drive=def_drive: (check_mnt drive) (db-restore)
+db-anew date drive=def_drive: (check_mnt drive) (db-restore date)
 
 # Starts a new database export migration cycle   
-anew folder="migra": db-anew
+anew date="20250121" folder="migra" verbose="": (db-anew date)
     #!/usr/bin/env bash
     set -exuo pipefail
     uv sync --reinstall
-    zp-db-fix-src
-    test -d {{ folder }} || mkdir {{ folder}}
-    zp-db-schema --console
-    zp-db-extract --console all --output-dir {{ folder}}
+    uv run zp-db-fix-src
+    test -d {{ folder }} || mkdir {{ folder }}
+    uv run zp-db-schema --console --log-file zptool.log {{ verbose }}
+    uv run zp-db-extract --console --log-file zptool.log {{ verbose }} all --output-dir {{ folder }}
 
 # Starts a new database import migration cycle   
-aload stage="photometer" folder="migra":
+aload stage="summary" folder="migra":
     #!/usr/bin/env bash
     set -exuo pipefail
-    test -d {{ folder }} || mkdir {{ folder}}
-    zp-db-loader --console config --input-dir {{ folder}}
-    zp-db-loader --console batch --input-dir {{ folder}}
+    test -d {{ folder }} || mkdir {{folder}}
+    uv run zp-db-loader --console config --input-dir {{folder}}
+    uv run zp-db-loader --console batch --input-dir {{folder}}
     if [ "{{stage}}" == "photometer" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
     elif [ "{{stage}}" == "summary" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
     elif [ "{{stage}}" == "rounds" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
-        zp-db-loader --console rounds --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
+        uv run zp-db-loader --console rounds --input-dir {{folder}}
     elif [ "{{stage}}" == "samples" ]; then
-        zp-db-loader --console photometer --input-dir {{ folder}}
-        zp-db-loader --console summary --input-dir {{ folder}}
-        zp-db-loader --console rounds --input-dir {{ folder}}
-        zp-db-loader --console samples --input-dir {{ folder}}
+        uv run zp-db-loader --console photometer --input-dir {{folder}}
+        uv run zp-db-loader --console summary --input-dir {{folder}}
+        uv run zp-db-loader --console rounds --input-dir {{folder}}
+        uv run zp-db-loader --console samples --input-dir {{folder}}
     else
         echo "No known stage"
         exit 1
     fi
 
-calib persist="" verbose="":
+# ========================= #
+# QUCK COMMAND LINE TESTING #
+# ========================= #
+
+# Writes new zero point to photometer
+test-write zp verbose="" trace="":
     #!/usr/bin/env bash
     set -euxo pipefail
-    cp zptess.db zptess-prudb.db
-    uv run zp-calib --console {{verbose}} test -b 9 -R 3 -P 5 {{persist}}
+    uv run zp-write --console {{verbose}} {{trace}} test -z {{zp}}
 
-[private]
-db-restore:
+# Reads test/ref/both photometers
+test-read verbose="" trace="" which="test" N="10" :
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-read --console {{verbose}} {{trace}} {{which}} -N {{N}}
+
+# Calibrate photometer
+test-calib verbose="" trace="" persist="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console {{verbose}} {{trace}} test -b 9 -R 3 -P 5 {{persist}}
+
+# Open a new batch
+test-open  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} begin
+
+# Close current open batch
+test-close  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} end
+
+# Close current open batch
+test-purge  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} purge
+
+# See orphan calibrations not within a batch
+test-orphan  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} orphan
+
+# Close current open batch
+test-view  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} view
+
+# Export latest batch
+test-export-latest  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} export --latest
+
+# Export latest batch and send email
+test-export-email  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} export --latest --email
+
+# Export all summaries
+test-export-all  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console {{verbose}} {{trace}} export --all
+
+# =======================================================================
+# DAY TO DAY CALIBRATION MANAGEMENT RECIPES
+#
+# Copy these recipes into a separate justfile and run all 
+# calibration-related task from there
+# ======================================================================= 
+
+# Open a new batch
+open:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace begin
+
+# Close current open batch
+close  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace end
+
+# Reads [test|ref|both] photometers N times
+read which="both" N="10" :
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-read --console --log-file zptess.log --trace {{which}} -N {{N}}
+
+# manually write a new zero point to a photometer
+write zp dry_run="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-write --console  --log-file zptess.log --trace  test -z {{zp}} {{dry_run}}
+
+# Cdisplay photometer info and quit
+info:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test --info
+
+# Calibrate a new photometer, but don't write new ZP nor update database
+dry-run:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test
+
+# Calibrate a new photometer and stores results in database
+calib:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-calib --console --log-file zptess.log --trace test --update --persist
+
+# Export all summaries
+summary:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace export --all
+
+# Export latest batch and send email
+export:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace export --latest --email
+
+# See orphan calibrations not within a batch
+orphan  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --trace orphan
+
+# Close current open batch
+view  verbose="" trace="":
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --trace view
+
+# Close current open batch
+purge:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    uv run zp-batch --console --log-file zptool.log --trace purge
+
+# Database migration. Execute onle once !
+migrate date="20250121" stage="samples" folder="migra" drive=def_drive: (check_mnt drive)
     #!/usr/bin/env bash
     set -exuo pipefail
-    cp {{ def_drive }}/zptess/zptess-20250121.db zptess.prod.db
+    cp {{ def_drive }}/zptess/zptess-{{date}}.db zptess.prod.db
+    uv run zp-db-fix-src
+    test -d {{ folder }} || mkdir {{ folder }}
+    # Create the database and export data from the old database
+    uv run zp-db-schema --console --log-file zpdbase.log
+    uv run zp-db-extract --console --log-file zpdbase.log all --output-dir {{ folder }}
+    # load data into new database
+    uv run zp-db-loader --console --log-file zpdbase.log config --input-dir {{folder}}
+    uv run zp-db-loader --console --log-file zpdbase.log batch --input-dir {{folder}}
+    if [ "{{stage}}" == "photometer" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+    elif [ "{{stage}}" == "summary" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+    elif [ "{{stage}}" == "rounds" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log rounds --input-dir {{folder}}
+    elif [ "{{stage}}" == "samples" ]; then
+        uv run zp-db-loader --console --log-file zpdbase.log photometer --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log summary --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log rounds --input-dir {{folder}}
+        uv run zp-db-loader --console --log-file zpdbase.log samples --input-dir {{folder}}
+    else
+        echo "Unknown stage"
+        exit 1
+    fi
+
+# Backup zptess database and log file
+backup drive=def_drive: (check_mnt drive)
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    bak_dir={{ join(drive, "zptess") }}
+    [ ! -d "${bak_dir}"  ] && mkdir -p ${bak_dir}
+    cp .env ${bak_dir}
+    cp zptess.db ${bak_dir}
+    cp zptess.log ${bak_dir}
+    cp zptool.log ${bak_dir}
+    cp zpdbase.log ${bak_dir}
+    cp justfile ${bak_dir}
+
+# Restore zptess database and log file
+restore drive=def_drive: (check_mnt drive)
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    bak_dir={{ join(drive, "zptess") }}
+    cp .env ${bak_dir}/.env .
+    cp ${bak_dir}/zptess.db .
+    cp ${bak_dir}/zptool.log  .
+    cp ${bak_dir}/zpdbase.log  .
+    cp ${bak_dir}/justfile .
+
+# =======================================================================
+
+[private]
+db-restore date:
+    #!/usr/bin/env bash
+    set -exuo pipefail
+    cp {{ def_drive }}/zptess/zptess-{{date}}.db zptess.prod.db
     
 
 [private]

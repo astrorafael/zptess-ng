@@ -23,7 +23,7 @@ from typing import Tuple, Mapping, Set, Any
 # local imports
 # -------------
 
-from .. import CentralTendency
+from ... import CentralTendency
 
 # ----------------
 # Module constants

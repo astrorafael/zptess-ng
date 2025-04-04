@@ -16,7 +16,7 @@ from argparse import Namespace, ArgumentParser
 # Third party imports
 # -------------------
 
-# from lica.cli import execute
+from lica.sqlalchemy import sqa_logging
 from lica.asyncio.cli import execute
 from lica.asyncio.photometer import Role
 
@@ -25,7 +25,7 @@ from lica.asyncio.photometer import Role
 # -------------
 
 from .. import __version__
-from ..lib.photometer import Reader
+from ..lib.controller.photometer import Reader
 from .util import parser as prs
 from .util.misc import log_phot_info, log_messages
 
@@ -71,7 +71,7 @@ async def cli_read_ref(args: Namespace) -> None:
     )
     await controller.init()
     await log_phot_info(controller, Role.REF)
-    if args.dry_run:
+    if args.info:
         return
     await log_messages(controller, Role.REF, args.num_messages)
 
@@ -90,7 +90,7 @@ async def cli_read_test(args: Namespace) -> None:
     )
     await controller.init()
     await log_phot_info(controller, Role.TEST)
-    if args.dry_run:
+    if args.info:
         return
     await log_messages(controller, Role.TEST, args.num_messages)
 
@@ -120,14 +120,18 @@ async def cli_read_both(args: Namespace) -> None:
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_phot_info(controller, Role.REF))
             tg.create_task(log_phot_info(controller, Role.TEST))
-        if args.dry_run:
+        if args.info:
             return
         async with asyncio.TaskGroup() as tg:
             tg.create_task(log_messages(controller, Role.REF, args.num_messages))
             tg.create_task(log_messages(controller, Role.TEST, args.num_messages))
     except* Exception as eg:
         for e in eg.exceptions:
-            log.error(e)
+            if args.trace:
+                log.exception(e)
+            else:
+                log.error(e)
+        raise RuntimeError("Could't continue execution, check errors above")
 
 
 # -----------------
@@ -138,17 +142,17 @@ async def cli_read_both(args: Namespace) -> None:
 def add_args(parser: ArgumentParser):
     subparser = parser.add_subparsers(dest="command", required=True)
     p = subparser.add_parser(
-        "ref", parents=[prs.dry(), prs.nmsg(), prs.ref()], help="Read reference photometer"
+        "ref", parents=[prs.info(), prs.nmsg(), prs.ref()], help="Read reference photometer"
     )
     p.set_defaults(func=cli_read_ref)
     p = subparser.add_parser(
-        "test", parents=[prs.dry(), prs.nmsg(), prs.test()], help="Read test photometer"
+        "test", parents=[prs.info(), prs.nmsg(), prs.test()], help="Read test photometer"
     )
     p.set_defaults(func=cli_read_test)
     p = subparser.add_parser(
         "both",
         parents=[
-            prs.dry(),
+            prs.info(),
             prs.nmsg(),
             prs.ref(),
             prs.test(),
@@ -159,11 +163,7 @@ def add_args(parser: ArgumentParser):
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await args.func(args)
 
 

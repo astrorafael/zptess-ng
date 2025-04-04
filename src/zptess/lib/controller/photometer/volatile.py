@@ -33,9 +33,8 @@ from .util import best
 from .types import Event, RoundStatistics, SummaryStatistics
 from .ring import RingBuffer
 from .base import Controller as BaseController
-
-
-from .. import CentralTendency
+from ..  import load_config
+from ... import CentralTendency
 
 # ----------------
 # Module constants
@@ -91,29 +90,29 @@ class Controller(BaseController):
         await super().init()
         self.meas_session = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
         async with self.Session() as session:
-            val_db = await self._load_config(session, SECTION[Role.TEST], "samples")
+            val_db = await load_config(session, SECTION[Role.TEST], "samples")
             val_arg = self.common_param["buffer"]
             self.capacity = val_arg if val_arg is not None else int(val_db)
-            val_db = await self._load_config(session, SECTION[Role.TEST], "period")
+            val_db = await load_config(session, SECTION[Role.TEST], "period")
             val_arg = self.common_param["period"]
             self.period = val_arg if val_arg is not None else float(val_db)
-            val_db = await self._load_config(session, SECTION[Role.TEST], "central")
+            val_db = await load_config(session, SECTION[Role.TEST], "central")
             val_arg = self.common_param["central"]
             self.central = val_arg if val_arg is not None else CentralTendency(val_db)
-            val_db = await self._load_config(session, "calibration", "zp_fict")
+            val_db = await load_config(session, "calibration", "zp_fict")
             val_arg = self.common_param["zp_fict"]
             self.zp_fict = val_arg if val_arg is not None else float(val_db)
-            val_db = await self._load_config(session, "calibration", "rounds")
+            val_db = await load_config(session, "calibration", "rounds")
             val_arg = self.common_param["rounds"]
             self.nrounds = val_arg if val_arg is not None else int(val_db)
-            val_db = await self._load_config(session, "calibration", "offset")
+            val_db = await load_config(session, "calibration", "offset")
             val_arg = self.common_param["zp_offset"]
             self.zp_offset = val_arg if val_arg is not None else float(val_db)
-            val_db = await self._load_config(session, "calibration", "author")
+            val_db = await load_config(session, "calibration", "author")
             val_arg = self.common_param["author"]
             self.author = val_arg if val_arg is not None else val_db
             # The absolute ZP is the stored ZP in the reference photometer.
-            self.zp_abs = float(await self._load_config(session, "ref-device", "zp"))
+            self.zp_abs = float(await load_config(session, "ref-device", "zp"))
         self.persist = self.common_param["persist"]
         self.update = self.common_param["update"]
         for role in self.roles:

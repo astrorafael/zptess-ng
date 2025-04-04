@@ -21,12 +21,12 @@ from typing import List
 # Third party imports
 # -------------------
 
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
+from lica.sqlalchemy import sqa_logging
+from lica.sqlalchemy.asyncio.dbase import AsyncSession
 from lica.asyncio.photometer import Role
 from lica.validators import vdate
 from lica.asyncio.cli import execute
@@ -469,17 +469,15 @@ TABLE = {
 
 
 async def qa(args) -> None:
-    async with engine.begin():
-        if args.command != "all":
-            func = TABLE[args.command]
+    if args.command != "all":
+        func = TABLE[args.command]
+        meas_session = args.session
+        await func(meas_session, AsyncSession)
+    else:
+        for name in ("summary", "rounds", "samples"):
             meas_session = args.session
+            func = TABLE[name]
             await func(meas_session, AsyncSession)
-        else:
-            for name in ("summary", "rounds", "samples"):
-                meas_session = args.session
-                func = TABLE[name]
-                await func(meas_session, AsyncSession)
-    await engine.dispose()
 
 
 def add_args(parser):
@@ -504,11 +502,7 @@ def prs_session() -> ArgumentParser:
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await qa(args)
 
 

@@ -19,17 +19,18 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-  "typing-extensions", # Self for Python < 3.11
-  "python-decouple", # Get info from enviromental variables
+  "python-decouple >= 3.8",  # Get info from enviromental variables
+  "typing-extensions >= 4.12", # Self for Python < 3.11
   # Async Database stuff
   "SQLAlchemy[asyncio]>=2.0",
-  "alembic",
-  "aiosqlite",
+  "alembic >= 1.15",
+  "aiosqlite >= 0.21",
   #'exceptiongroups', # For Python < 3.11 when using TaskGroups
   #'asyncstdlib', # async counterparts such as aenumerate()
   # synchronous style publish/subscribe mechanism
-  "pypubsub",
-  "lica[photometer]>=1.0.16",
+  "pypubsub >= 4.0",
+  "lica[photometer,tabular]>=1.1",
+   "aiohttp >= 3.11",
 ]
 
 [project.urls]
@@ -47,6 +48,9 @@ zp-db-fix = "zptess.cli.dbase.fix:main"
 zp-read =  "zptess.cli.reader:main"
 zp-calib =  "zptess.cli.calibrate:main"
 zp-write =  "zptess.cli.writer:main"
+# Additional tools
+zp-batch = "zptess.cli.tools:main"
+
 
 [build-system]
 requires = ["setuptools >= 78.1", "wheel", "setuptools_scm[toml]>=8.2"]
@@ -77,3 +81,6 @@ dev-dependencies = [
     "pytest>=8.3.3",
     "mypy>=1.15.0",
 ]
+
+[tool.uv.sources]
+lica = { git = "https://github.com/guaix-ucm/lica", branch = "main" }

@@ -134,15 +134,19 @@ class Config(Model):
 
 class Batch(Model):
     __tablename__ = "batch_t"
-
-    begin_tstamp: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    begin_tstamp: Mapped[datetime] = mapped_column(DateTime, unique=True)
     end_tstamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
     email_sent: Mapped[Optional[bool]]
     calibrations: Mapped[Optional[int]]
     comment: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # This is not a real column, it s meant for the ORM
+    summaries: Mapped[List["Summary"]] = relationship(back_populates="batch")
+
     def __repr__(self) -> str:
-        return f"Batch(begin={datestr(self.begin_tstamp)}, end={datestr(self.end_tstamp)}, N={self.calibrations!r}, emailed={self.email_sent!r})"
+        return f"Batch(begin={datestr(self.begin_tstamp)}, end={datestr(self.end_tstamp)})"
 
 
 class Photometer(Model):
@@ -180,6 +184,7 @@ class Summary(Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     phot_id: Mapped[int] = mapped_column(ForeignKey("photometer_t.id"), index=True)
+    batch_id: Mapped[Optional[int]] = mapped_column(ForeignKey("batch_t.id"))
     session: Mapped[datetime] = mapped_column(DateTime)  # calibration session identifier
     role: Mapped[RoleType] = mapped_column(RoleType)
     calibration: Mapped[CalibrationType] = mapped_column(CalibrationType, nullable=True)
@@ -203,6 +208,7 @@ class Summary(Model):
     )  #  Additional comment for the calibration process
 
     # These are not a real columns, it is meant for the ORM
+    batch: Mapped[Optional["Batch"]] = relationship(back_populates="summaries")
     photometer: Mapped["Photometer"] = relationship(back_populates="calibrations")
     rounds: Mapped[List["Round"]] = relationship(back_populates="summary")
     samples: Mapped[Set["Sample"]] = relationship(back_populates="summary")
@@ -314,37 +320,42 @@ summary_view = view(
     metadata=Model.metadata,
     selectable=select(
         Summary.id.label("id"),
+        Photometer.model.label("model"),
         Photometer.name.label("name"),
         Photometer.mac.label("mac"),
+        Photometer.firmware.label("firmware"),
+        Photometer.sensor.label("sensor"),
         Summary.session.label("session"),
         Summary.role.label("role"),
         Summary.nrounds.label("nrounds"),
         Summary.upd_flag.label("upd_flag"),
         func.round(Summary.zero_point, 2).label("zero_point"),
         func.round(Summary.zp_offset, 2).label("zp_offset"),
-        func.round((Summary.zero_point - Summary.zp_offset), 2).label(
-            "raw_zero_point"
-        ),
+        func.round((Summary.zero_point - Summary.zp_offset), 2).label("raw_zero_point"),
         Summary.calibration.label("calibration"),
         func.round(Summary.prev_zp, 2).label("prev_zp"),
-        func.round(Summary.freq, 3).label("freq"),
-        func.round(Summary.mag, 2).label("mag"),
+        func.round(Ref_t.mag, 2).label("ref_mag"),
+        func.round(Ref_t.freq, 3).label("ref_freq"),
+        func.round(Summary.mag, 2).label("test_mag"),
+        func.round(Summary.freq, 3).label("test_freq"),
+        func.round((Ref_t.mag - Summary.mag), 2).label("mag_diff"),
         Photometer.freq_offset.label("freq_offset"),
-        func.round((Ref_t.mag - Summary.mag), 2).label(
-            "mag_diff"
-        ),
         Summary.zero_point_method.label("zero_point_method"),
         Summary.freq_method.label("freq_method"),
         Summary.calversion.label("calversion"),
+        Photometer.filter.label("filter"),
+        Photometer.plug.label("plug"),
+        Photometer.box.label("box"),
+        Photometer.collector.label("collector"),
+        Summary.author.label("author"),
         Summary.comment.label("comment"),
     )
     .join(Ref_t, Ref_t.session == Summary.session)
     .join(Photometer, Photometer.id == Summary.phot_id)
     .where(Ref_t.role == Role.REF, Summary.role == Role.TEST),
-
 )
 
-# Another view for debugging data
+# Another view for exporting data
 rounds_view = view(
     name="rounds_v",
     metadata=Model.metadata,
@@ -354,16 +365,16 @@ rounds_view = view(
         Photometer.mac.label("mac"),
         Photometer.model.label("model"),
         Summary.session.label("session"),
-        Round.__table__.c.round.label("round"), # Problems with the 'round' attribute name'
+        Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
         Round.role.label("role"),
-        Round.freq.label("freq"),
+        func.round(Round.freq, 3).label("freq"),
         Round.central.label("central"),
-        Round.stddev.label("stddev"),
-        Round.mag.label("mag"),
+        func.round(Round.stddev, 4).label("stddev"), 
+        func.round(Round.mag, 3).label("mag"),
         Round.zp_fict.label("zp_fict"),
         Round.zero_point.label("zero_point"),
         Round.nsamples.label("nsamples"),
-        Round.duration.label("duration"),
+        func.round(Round.duration, 3).label("duration"),
         Round.begin_tstamp.label("begin_tstamp"),
         Round.end_tstamp.label("end_tstamp"),
         Summary.upd_flag.label("upd_flag"),
@@ -376,8 +387,46 @@ rounds_view = view(
 )
 
 
+# Another view for exporting data
+samples_view = view(
+    name="samples_v",
+    metadata=Model.metadata,
+    selectable=select(
+        Sample.id.label("id"),
+        Photometer.name.label("name"),
+        Photometer.mac.label("mac"),
+        Photometer.model.label("model"),
+        Summary.session.label("session"),
+        Summary.upd_flag.label("upd_flag"),
+        Round.__table__.c.round.label("round"),  # Problems with the 'round' attribute name'
+        Sample.role.label("role"),
+        Sample.tstamp.label("tstamp"),
+        func.round(Sample.freq, 3).label("freq"),
+        Sample.temp_box.label("temp_box"),
+        Sample.seq.label("seq"),
+    )
+    .select_from(SamplesRounds)
+    .join(Sample,  SamplesRounds.c.sample_id == Sample.id)
+    .join(Round,  SamplesRounds.c.round_id == Round.id)
+    .join(Summary, Sample.summ_id == Summary.id)
+    .join(Photometer, Photometer.id == Summary.phot_id)
+)
+
+
 class SummaryView(Model):
     __table__ = summary_view
 
     def __repr__(self) -> str:
         return f"SummaryView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, nrounds={self.nrounds!r}, zp={self.zero_point!r}, calib={self.calibration!r}, freq={self.freq!r})"
+
+class RoundView(Model):
+    __table__ = rounds_view
+
+    def __repr__(self) -> str:
+        return f"RoundsView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, freq={self.freq!r}, method={self.central!r})"
+
+class SampleView(Model):
+    __table__ = samples_view
+
+    def __repr__(self) -> str:
+        return f"SampleView(name={self.name}, mac={self.mac}, session={datestr(self.session)}, role={self.role!r}, freq={self.freq!r}, sequence={self.sequence!r})"

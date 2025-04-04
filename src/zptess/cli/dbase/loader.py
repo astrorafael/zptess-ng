@@ -24,8 +24,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession as AsyncSessionClass
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from lica.sqlalchemy.asyncio.dbase import engine, AsyncSession
-#from lica.asyncio.photometer import Model as PhotModel, Role, Sensor
+from lica.sqlalchemy import sqa_logging
+from lica.sqlalchemy.asyncio.dbase import AsyncSession
 from lica.asyncio.cli import execute
 
 # --------------
@@ -95,7 +95,7 @@ async def load_config(path: str, async_session: async_sessionmaker[AsyncSessionC
                     session.add(config)
 
 
-async def load_photometer(path:str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def load_photometer(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     async with async_session() as session:
         async with session.begin():
             log.info("loading photometer from %s", path)
@@ -110,7 +110,7 @@ async def load_photometer(path:str, async_session: async_sessionmaker[AsyncSessi
                     session.add(phot)
 
 
-async def load_summary(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+async def _load_summary(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
     async with async_session() as session:
         async with session.begin():
             log.info("loading summary from %s", path)
@@ -128,13 +128,39 @@ async def load_summary(path: str, async_session: async_sessionmaker[AsyncSession
                         row[key] = float(row[key]) if row[key] else None
                     for key in ("zero_point_method", "freq_method", "nrounds", "comment"):
                         row[key] = None if not row[key] else row[key]
-                    q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
-                    summary = Summary(**row)
                     log.info("[%9s - %s]Processing row. %s", name, mac, row)
+                    q = select(Photometer).where(Photometer.mac == mac, Photometer.name == name)
                     phot = (await session.scalars(q)).one()
+                    summary = Summary(**row)
                     summary.photometer = phot
                     log.info("%r", summary)
                     session.add(summary)
+
+
+async def _assign_batches(async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+    async with async_session() as session:
+        async with session.begin():
+            q = select(Batch)
+            batches = (await session.scalars(q)).all()
+            for batch in batches:
+                log.info("Handling batch %s", batch)
+                q = select(Summary).where(
+                    Summary.session.between(batch.begin_tstamp, batch.end_tstamp)
+                )
+                summaries = (await session.scalars(q)).all()
+                for summary in summaries:
+                    log.info("Assigning summary %s to batch %s", summary, batch)
+                    summary.batch = batch
+                    session.add(summary)
+
+
+async def load_summary(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+    await _load_summary(path, async_session)
+    await _assign_batches(async_session)
+
+
+async def assign_batches(async_session: async_sessionmaker[AsyncSessionClass]) -> None:
+    await _assign_batches(async_session)
 
 
 async def load_rounds(path: str, async_session: async_sessionmaker[AsyncSessionClass]) -> None:
@@ -233,37 +259,39 @@ TABLE = {
     "batch": load_batch,
     "photometer": load_photometer,
     "summary": load_summary,
+    "assign": assign_batches,
     "rounds": load_rounds,
     "samples": load_samples,
 }
 
 
 async def loader(args) -> None:
-    async with engine.begin():
-        if args.command not in ("all", "nosamples", "norounds"):
-            func = TABLE[args.command]
-            path = os.path.join(args.input_dir, args.command + ".csv")
+    if args.command not in ("all", "nosamples", "norounds", "assign"):
+        func = TABLE[args.command]
+        path = os.path.join(args.input_dir, args.command + ".csv")
+        await func(path, AsyncSession)
+        if args.command == "all":
+            assert ORPHANED_SESSIONS_IN_ROUNDS == ORPHANED_SESSIONS_IN_SAMPLES, (
+                f"Difference is {ORPHANED_SESSIONS_IN_ROUNDS - ORPHANED_SESSIONS_IN_SAMPLES}"
+            )
+    elif args.command == "norounds":
+        for name in ("config", "batch", "photometer", "summary"):
+            path = os.path.join(args.input_dir, name + ".csv")
+            func = TABLE[name]
             await func(path, AsyncSession)
-            if args.command == "all":
-                assert (
-                    ORPHANED_SESSIONS_IN_ROUNDS == ORPHANED_SESSIONS_IN_SAMPLES
-                ), f"Differnece is {ORPHANED_SESSIONS_IN_ROUNDS - ORPHANED_SESSIONS_IN_SAMPLES}"
-        elif args.command == "norounds":
-            for name in ("config", "batch", "photometer", "summary"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-        elif args.command == "nosamples":
-            for name in ("config", "batch", "photometer", "summary", "rounds"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-        else:
-            for name in ("config", "batch", "photometer", "summary", "rounds", "samples"):
-                path = os.path.join(args.input_dir, name + ".csv")
-                func = TABLE[name]
-                await func(path, AsyncSession)
-    await engine.dispose()
+    elif args.command == "nosamples":
+        for name in ("config", "batch", "photometer", "summary", "rounds"):
+            path = os.path.join(args.input_dir, name + ".csv")
+            func = TABLE[name]
+            await func(path, AsyncSession)
+    elif args.command == "assign":
+        func = TABLE[name]
+        await func(AsyncSession)
+    else:
+        for name in ("config", "batch", "photometer", "summary", "rounds", "samples"):
+            path = os.path.join(args.input_dir, name + ".csv")
+            func = TABLE[name]
+            await func(path, AsyncSession)
 
 
 def add_args(parser: ArgumentParser) -> None:
@@ -272,6 +300,7 @@ def add_args(parser: ArgumentParser) -> None:
     subparser.add_parser("batch", parents=[prs.idir()], help="Load batch CSV")
     subparser.add_parser("photometer", parents=[prs.idir()], help="Load photometer CSV")
     subparser.add_parser("summary", parents=[prs.idir()], help="Load summary CSV")
+    subparser.add_parser("assign", parents=[], help="Assign summaries to batches")
     subparser.add_parser("rounds", parents=[prs.idir()], help="Load rounds CSV")
     subparser.add_parser("samples", parents=[prs.idir()], help="Load samples CSV")
     subparser.add_parser("nosamples", parents=[prs.idir()], help="Load all CSVs except samples")
@@ -279,11 +308,7 @@ def add_args(parser: ArgumentParser) -> None:
 
 
 async def cli_main(args: Namespace) -> None:
-    if args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
-        logging.getLogger("aiosqlite").setLevel(logging.INFO)
-    else:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    sqa_logging(args)
     await loader(args)
 
 
